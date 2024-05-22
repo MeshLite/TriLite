@@ -1,0 +1,16 @@
+.vscode
+inputs
+out*
+documentation
+compiled
+local
+tests/myenv
+binding_python
+processing
+docs/html
+docs/latex
+*.so
+build/
+venv/
+*.egg-info/
+.clang-format
