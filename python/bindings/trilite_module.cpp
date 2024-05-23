@@ -1,9 +1,24 @@
-// Copyright (c) 2024 TriLite
-// This file is part of the TriLite project, a C++23 library for triangular mesh
-// processing. Distributed under the MIT License. The full license text can be
-// found at: https://github.com/MeshLite/TriLite/blob/main/LICENSE
-// This notice must remain intact in all copies or substantial portions of the
-// file.
+// MIT License
+//
+// Copyright (c) 2024 TriLite https://github.com/MeshLite/TriLite
+//
+// Permission is hereby granted, free of charge, to any person obtaining a copy
+// of this software and associated documentation files (the "Software"), to deal
+// in the Software without restriction, including without limitation the rights
+// to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+// copies of the Software, and to permit persons to whom the Software is
+// furnished to do so, subject to the following conditions:
+//
+// The above copyright notice and this permission notice shall be included in
+// all copies or substantial portions of the Software.
+//
+// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+// SOFTWARE.
 
 #include <pybind11/eigen.h>
 #include <pybind11/pybind11.h>
@@ -11,7 +26,7 @@
 
 #include "../../TriLite/Core/Trimesh.hpp"
 #include "../../TriLite/Modules/IO.hpp"
-#include "../../TriLite/Modules/MeshProcessing.hpp"
+#include "../../TriLite/Modules/Processing.hpp"
 
 namespace py = pybind11;
 using namespace TL;
@@ -122,18 +137,18 @@ PYBIND11_MODULE(trilite, m) {
       .def("__deepcopy__",
            [](const Trimesh& self, py::dict) { return Trimesh(self); });
 
-  m.def("ReadMeshFile", &TL::ReadMeshFile,
+  m.def("ReadMeshFile", &TL::IO::ReadMeshFile,
         "Read a mesh file and return a Trimesh object", py::arg("filepath"));
-  m.def("WriteMeshFile", &TL::WriteMeshFile,
+  m.def("WriteMeshFile", &TL::IO::WriteMeshFile,
         "Write a Trimesh object to a mesh file", py::arg("mesh"),
         py::arg("filepath"), py::arg("binary_mode") = true);
-  m.def("DecimateMesh", &TL::DecimateMesh,
+  m.def("DecimateMesh", &TL::Processing::DecimateMesh,
         "A function to simplify a triangular mesh", py::arg("mesh"),
         py::arg("target_face_count"));
-  m.def("FillMeshHoles", &TL::FillMeshHoles,
+  m.def("FillMeshHoles", &TL::Processing::FillMeshHoles,
         "A function to remove holes from triangular mesh", py::arg("mesh"),
         py::arg("target_hole_count") = 0);
-  m.def("TaubinSmoothing", &TL::TaubinSmoothing,
+  m.def("TaubinSmoothing", &TL::Processing::TaubinSmoothing,
         "Apply Laplacian smoothing to a mesh", py::arg("mesh"),
         py::arg("iterations") = 1, py::arg("lambda") = 0.5,
         py::arg("mu") = -0.53);
