@@ -1,9 +1,24 @@
-// Copyright (c) 2024 TriLite
-// This file is part of the TriLite project, a C++23 library for triangular mesh
-// processing. Distributed under the MIT License. The full license text can be
-// found at: https://github.com/MeshLite/TriLite/blob/main/LICENSE
-// This notice must remain intact in all copies or substantial portions of the
-// file.
+// MIT License
+//
+// Copyright (c) 2024 TriLite https://github.com/MeshLite/TriLite
+//
+// Permission is hereby granted, free of charge, to any person obtaining a copy
+// of this software and associated documentation files (the "Software"), to deal
+// in the Software without restriction, including without limitation the rights
+// to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+// copies of the Software, and to permit persons to whom the Software is
+// furnished to do so, subject to the following conditions:
+//
+// The above copyright notice and this permission notice shall be included in
+// all copies or substantial portions of the Software.
+//
+// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+// SOFTWARE.
 
 #ifndef MESH_PROCESSING_HPP
 #define MESH_PROCESSING_HPP
@@ -13,32 +28,35 @@
 #include "../Core/Trimesh.hpp"
 namespace TL {
 
-/**
- * @brief External decimation function to simplify a triangular mesh.
- * @param mesh Reference to the Trimesh object to be simplified.
- * @param target_face_count The target number of faces after decimation.
- */
-void DecimateMesh(Trimesh& mesh, size_t target_face_count);
+class Processing {
+ public:
+  /**
+   * @brief External decimation function to simplify a triangular mesh.
+   * @param mesh Reference to the Trimesh object to be simplified.
+   * @param target_face_count The target number of faces after decimation.
+   */
+  static void DecimateMesh(Trimesh& mesh, size_t target_face_count);
 
-/**
- * @brief Fills holes in a triangular mesh by detecting boundary edges and
- * adding triangles.
- * @param mesh The triangular mesh to be processed.
- */
-void FillMeshHoles(Trimesh& mesh, size_t target_hole_count = 0);
+  /**
+   * @brief Fills holes in a triangular mesh by detecting boundary edges and
+   * adding triangles.
+   * @param mesh The triangular mesh to be processed.
+   */
+  static void FillMeshHoles(Trimesh& mesh, size_t target_hole_count = 0);
 
-/**
- * @brief Applies volume-preserving Laplacian smoothing (Taubin smoothing) to a
- * triangular mesh.
- * @param mesh The triangular mesh to be smoothed.
- * @param iterations The number of smoothing iterations.
- * @param lambda The smoothing factor for the Laplacian step.
- * @param mu The inverse smoothing factor for the inverse Laplacian step.
- */
-void TaubinSmoothing(Trimesh& mesh, int iterations = 1, double lambda = 0.5,
-                     double mu = -0.53);
+  /**
+   * @brief Applies volume-preserving Laplacian smoothing (Taubin smoothing) to
+   * a triangular mesh.
+   * @param mesh The triangular mesh to be smoothed.
+   * @param iterations The number of smoothing iterations.
+   * @param lambda The smoothing factor for the Laplacian step.
+   * @param mu The inverse smoothing factor for the inverse Laplacian step.
+   */
+  static void TaubinSmoothing(Trimesh& mesh, int iterations = 1,
+                              double lambda = 0.5, double mu = -0.53);
+};
 
-void DecimateMesh(Trimesh& mesh, size_t target_face_count) {
+void Processing::DecimateMesh(Trimesh& mesh, size_t target_face_count) {
   std::vector<double> edge_lengths(mesh.NumHalfedges());
   auto compare = [&edge_lengths](H h, H g) {
     return edge_lengths[h] < edge_lengths[g] ||
@@ -102,7 +120,7 @@ void DecimateMesh(Trimesh& mesh, size_t target_face_count) {
   }
 }
 
-void FillMeshHoles(Trimesh& mesh, size_t target_hole_count) {
+void Processing::FillMeshHoles(Trimesh& mesh, size_t target_hole_count) {
   std::unordered_set<H> boundary_edges;
   std::vector<std::vector<H>> polygons;
   for (H st_h : mesh.BoundaryHalfedges()) {
@@ -128,7 +146,8 @@ void FillMeshHoles(Trimesh& mesh, size_t target_hole_count) {
   }
 }
 
-void TaubinSmoothing(Trimesh& mesh, int iterations, double lambda, double mu) {
+void Processing::TaubinSmoothing(Trimesh& mesh, int iterations, double lambda,
+                                 double mu) {
   std::vector<Eigen::Vector3d> new_positions(mesh.NumVertices());
 
   for (int iter = 0; iter < iterations; ++iter) {
@@ -165,7 +184,6 @@ void TaubinSmoothing(Trimesh& mesh, int iterations, double lambda, double mu) {
     }
   }
 }
-
 }  // namespace TL
 
 #endif  // MESH_PROCESSING_HPP
