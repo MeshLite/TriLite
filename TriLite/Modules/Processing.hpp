@@ -26,6 +26,7 @@
 #include <set>
 
 #include "../Core/Trimesh.hpp"
+
 namespace TL {
 
 class Processing {
