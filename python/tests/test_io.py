@@ -47,7 +47,7 @@ class TestTrimeshFunctions(unittest.TestCase):
             with self.subTest(filename=filename):
                 filepath = os.path.join(self.__class__.dataset_dir, filename)
 
-                mesh = TL.ReadMeshFile(filepath)
+                mesh = TL.IO.ReadMeshFile(filepath)
 
                 structure = [[] for _ in range(mesh.NumVertices())]
                 for v in range(mesh.NumVertices()):
@@ -59,10 +59,12 @@ class TestTrimeshFunctions(unittest.TestCase):
                         self.__class__.cur_path = os.path.join(
                             self.__class__.output_dir, f"test{extension}"
                         )
-                        TL.WriteMeshFile(
+                        TL.IO.WriteMeshFile(
                             mesh, self.__class__.cur_path, binary_mode
                         )
-                        rounded_mesh = TL.ReadMeshFile(self.__class__.cur_path)
+                        rounded_mesh = TL.IO.ReadMeshFile(
+                            self.__class__.cur_path
+                        )
                         # The mesh topology must remain exactly the same
                         # as the initial mesh, for all file extensions
                         self.assertEqual(
