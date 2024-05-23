@@ -49,9 +49,9 @@ int main() {
 Or directly with python binding :
 ```python
     import trilite as TL
-    mesh = TL.ReadMeshFile("bunny.obj)
+    mesh = TL.IO.ReadMeshFile("bunny.obj)
     TL.DecimateMesh(mesh, mesh.NumFaces() // 2)
-    TL.WriteMeshFile(mesh, "out.stl")
+    TL.IO.WriteMeshFile(mesh, "out.stl")
 ```
 
 ## Code Formatting

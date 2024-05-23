@@ -25,6 +25,7 @@
 #include <pybind11/stl.h>
 
 #include "../../TriLite/Core/Trimesh.hpp"
+#include "../../TriLite/Modules/Distance.hpp"
 #include "../../TriLite/Modules/IO.hpp"
 #include "../../TriLite/Modules/Processing.hpp"
 
@@ -137,19 +138,42 @@ PYBIND11_MODULE(trilite, m) {
       .def("__deepcopy__",
            [](const Trimesh& self, py::dict) { return Trimesh(self); });
 
-  m.def("ReadMeshFile", &TL::IO::ReadMeshFile,
-        "Read a mesh file and return a Trimesh object", py::arg("filepath"));
-  m.def("WriteMeshFile", &TL::IO::WriteMeshFile,
-        "Write a Trimesh object to a mesh file", py::arg("mesh"),
-        py::arg("filepath"), py::arg("binary_mode") = true);
-  m.def("DecimateMesh", &TL::Processing::DecimateMesh,
-        "A function to simplify a triangular mesh", py::arg("mesh"),
-        py::arg("target_face_count"));
-  m.def("FillMeshHoles", &TL::Processing::FillMeshHoles,
-        "A function to remove holes from triangular mesh", py::arg("mesh"),
-        py::arg("target_hole_count") = 0);
-  m.def("TaubinSmoothing", &TL::Processing::TaubinSmoothing,
-        "Apply Laplacian smoothing to a mesh", py::arg("mesh"),
-        py::arg("iterations") = 1, py::arg("lambda") = 0.5,
-        py::arg("mu") = -0.53);
+  py::class_<IO>(m, "IO")
+      .def_static("ReadMeshFile", &IO::ReadMeshFile,
+                  "Read a mesh file and return a Trimesh object",
+                  py::arg("filepath"))
+      .def_static("WriteMeshFile", &IO::WriteMeshFile,
+                  "Write a Trimesh object to a mesh file", py::arg("mesh"),
+                  py::arg("filepath"), py::arg("binary_mode") = true);
+
+  py::class_<Processing>(m, "Processing")
+      .def_static("DecimateMesh", &Processing::DecimateMesh,
+                  "A function to simplify a triangular mesh", py::arg("mesh"),
+                  py::arg("target_face_count"))
+      .def_static("FillMeshHoles", &Processing::FillMeshHoles,
+                  "A function to remove holes from triangular mesh",
+                  py::arg("mesh"), py::arg("target_hole_count") = 0)
+      .def_static("TaubinSmoothing", &Processing::TaubinSmoothing,
+                  "Apply Laplacian smoothing to a mesh", py::arg("mesh"),
+                  py::arg("iterations") = 1, py::arg("lambda") = 0.5,
+                  py::arg("mu") = -0.53);
+
+  py::class_<Distance>(m, "Distance")
+      .def_static(
+          "AsymetricMeanEuclidean", &Distance::AsymetricMeanEuclidean,
+          "Compute the asymmetric mean Euclidean distance between two meshes",
+          py::arg("mesh1"), py::arg("mesh2"), py::arg("precision"))
+      .def_static("MeanEuclidean", &Distance::MeanEuclidean,
+                  "Compute the mean Euclidean distance between two meshes",
+                  py::arg("mesh1"), py::arg("mesh2"), py::arg("precision"));
+
+  py::class_<Distance::Tree>(m.attr("Distance"), "Tree")
+      .def(py::init<const Trimesh&>())
+      .def("Distance", &Distance::Tree::Distance,
+           "Compute the unsigned Euclidean distance from a point to the "
+           "nearest point on the mesh",
+           py::arg("point"))
+      .def("ClosestPoint", &Distance::Tree::ClosestPoint,
+           "Find the closest point on the mesh to a given point",
+           py::arg("point"));
 }

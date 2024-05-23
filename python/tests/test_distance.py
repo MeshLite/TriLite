@@ -24,6 +24,8 @@ import unittest
 import trilite as TL
 import os
 import sys
+import numpy as np
+from math import sqrt, log
 
 if len(sys.argv) < 2:
     print("Usage: python test_trimesh_functions.py /path/to/your/dataset")
@@ -39,41 +41,43 @@ class TestMeshProcessing(unittest.TestCase):
         cls.dataset_dir = dataset_dir
         cls.files = os.listdir(cls.dataset_dir)
 
-    def test_decimation(self):
+    def test_mean_distance_to_barycenter(self):
+        v0 = np.array([0.0, 0.0, 0.0])
+        v1 = np.array([1.0, 0.0, 0.0])
+        v2 = np.array([0.5, 0.5 * sqrt(3), 0.0])
+        mesh1 = TL.Trimesh([v0, v1, v2])
+        bary = (v0 + v1 + v2) / 3.0
+        mesh2 = TL.Trimesh(
+            [bary, bary + [0.0, 0.001, 1.0], bary + [0.0, -0.001, 1.0]]
+        )
+        self.assertAlmostEqual(
+            TL.Distance.AsymetricMeanEuclidean(mesh1, mesh2, 1e-2),
+            (2 * sqrt(3) + log(sqrt(3) + 2)) / 18.0,
+            delta=1e-3,
+        )
+        self.assertAlmostEqual(
+            TL.Distance.AsymetricMeanEuclidean(mesh2, mesh1, 1e-2),
+            2.0 / 3.0,
+            delta=1e-3,
+        )
+        tree = TL.Distance.Tree(mesh1)
+        self.assertAlmostEqual(tree.Distance([0.0, 0.0, 1.0]), 1.0)
+        self.assertTrue(
+            np.array_equal(
+                tree.ClosestPoint([0.0, 0.0, 1.0]),
+                np.array([0.0, 0.0, 0.0]),
+            )
+        )
+
+    def test_mean_distance_to_mesh(self):
+        ref_mesh = None
         for filename in os.listdir(self.__class__.dataset_dir):
             with self.subTest(filename=filename):
                 filepath = os.path.join(self.__class__.dataset_dir, filename)
                 mesh = TL.IO.ReadMeshFile(filepath)
-                target_face_count = mesh.NumFaces() // 2
-                TL.Processing.DecimateMesh(mesh, target_face_count)
-                self.assertLessEqual(
-                    mesh.NumFaces(),
-                    target_face_count,
-                    "Mesh faces should be decimated",
-                )
-
-    def test_hole_filling(self):
-        for filename in os.listdir(self.__class__.dataset_dir):
-            with self.subTest(filename=filename):
-                filepath = os.path.join(self.__class__.dataset_dir, filename)
-                mesh = TL.IO.ReadMeshFile(filepath)
-                mesh.DisconnectFacesUntilManifold()
-                for h in range(mesh.NumHalfedges()):
-                    self.assertTrue(mesh.EdgeIsManifold(h))
-                for v in range(mesh.NumVertices()):
-                    self.assertTrue(mesh.VIsManifold(v))
-
-                TL.Processing.FillMeshHoles(mesh, 0)
-
-                for h in range(mesh.NumHalfedges()):
-                    self.assertTrue(mesh.HOpposite(h) < mesh.NumHalfedges())
-
-    def test_taubin_smoothing(self):
-        for filename in os.listdir(self.__class__.dataset_dir):
-            with self.subTest(filename=filename):
-                filepath = os.path.join(self.__class__.dataset_dir, filename)
-                mesh = TL.IO.ReadMeshFile(filepath)
-                TL.Processing.TaubinSmoothing(mesh, 1)
+                if ref_mesh == None:
+                    ref_mesh = mesh
+                TL.Distance.MeanEuclidean(mesh, ref_mesh, 1.0)
 
 
 if __name__ == "__main__":

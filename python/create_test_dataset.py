@@ -53,7 +53,7 @@ def main():
         num_faces = random.randint(0, 1000)
         mesh = create_random_mesh(num_vertices, num_faces)
         filename = os.path.join(input_dir, f"mesh_{i}.stl")
-        TL.WriteMeshFile(mesh, filename, random.choice([False, True]))
+        TL.IO.WriteMeshFile(mesh, filename, random.choice([False, True]))
 
 
 if __name__ == "__main__":
