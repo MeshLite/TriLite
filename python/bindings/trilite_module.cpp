@@ -160,9 +160,16 @@ PYBIND11_MODULE(trilite, m) {
 
   py::class_<Distance>(m, "Distance")
       .def_static(
-          "AsymetricMeanEuclidean", &Distance::AsymetricMeanEuclidean,
+          "AsymmetricHausdorff", &Distance::AsymmetricHausdorff,
+          "Compute the asymmetric Hausdorff distance between two meshes",
+          py::arg("mesh"), py::arg("target_mesh"), py::arg("precision"))
+      .def_static("Hausdorff", &Distance::Hausdorff,
+                  "Compute the Hausdorff distance between two meshes",
+                  py::arg("mesh1"), py::arg("mesh2"), py::arg("precision"))
+      .def_static(
+          "AsymmetricMeanEuclidean", &Distance::AsymmetricMeanEuclidean,
           "Compute the asymmetric mean Euclidean distance between two meshes",
-          py::arg("mesh1"), py::arg("mesh2"), py::arg("precision"))
+          py::arg("mesh"), py::arg("target_mesh"), py::arg("precision"))
       .def_static("MeanEuclidean", &Distance::MeanEuclidean,
                   "Compute the mean Euclidean distance between two meshes",
                   py::arg("mesh1"), py::arg("mesh2"), py::arg("precision"));

@@ -1,27 +1,6 @@
 // The MIT License (MIT)
 //
 // Copyright (c) 2021 José Antonio Fernández Fernández
-//
-// Permission is hereby granted, free of charge, to any person obtaining a copy
-// of this software and associated documentation files (the "Software"), to deal
-// in the Software without restriction, including without limitation the rights
-// to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-// copies of the Software, and to permit persons to whom the Software is
-// furnished to do so, subject to the following conditions:
-//
-// The above copyright notice and this permission notice shall be included in
-// all copies or substantial portions of the Software.
-//
-// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-// SOFTWARE.
-
-// MIT License
-//
 // Copyright (c) 2024 TriLite https://github.com/MeshLite/TriLite
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -50,7 +29,6 @@
 #include <unordered_map>
 #include <vector>
 
-#include "../Core/Sampling.hpp"
 #include "../Core/Trimesh.hpp"
 
 namespace TL {
@@ -58,21 +36,60 @@ namespace TL {
 class Distance {
  public:
   /**
+   * @brief Computes the asymmetric Hausdorff distance between two triangle
+   * meshes.
+   *
+   * This function computes the asymmetric Hausdorff distance between two
+   * triangle meshes, `mesh` and `target_mesh`. The distance is calculated by
+   * finding the maximum distance from any point on `mesh` to its closest point
+   * on `target_mesh`.
+   *
+   * @param mesh The first triangle mesh from which points are sampled.
+   * @param target_mesh The second triangle mesh to which distances are
+   * calculated.
+   * @param precision Desired precision for the computed asymmetric Hausdorff
+   * distance, influencing the sampling density on the mesh.
+   * @return double The computed asymmetric Hausdorff distance.
+   */
+  static double AsymmetricHausdorff(const Trimesh& mesh,
+                                    const Trimesh& target_mesh,
+                                    double precision);
+
+  /**
+   * @brief Computes the Hausdorff distance between two triangle meshes.
+   *
+   * This function computes the Hausdorff distance between two triangle meshes,
+   * `mesh1` and `mesh2`. The distance is calculated as the maximum of the
+   * asymmetric Hausdorff distances computed in both directions: from `mesh1`
+   * to `mesh2` and from `mesh2` to `mesh1`.
+   *
+   * @param mesh1 The first triangle mesh.
+   * @param mesh2 The second triangle mesh.
+   * @param precision Desired precision for the computed Hausdorff distance,
+   * influencing the sampling density on the mesh.
+   * @return double The computed Hausdorff distance.
+   */
+  static double Hausdorff(const Trimesh& mesh1, const Trimesh& mesh2,
+                          double precision);
+  /**
    * @brief Computes the asymmetric mean Euclidean distance between two triangle
    * meshes.
    *
    * This function computes the asymmetric mean Euclidean distance between two
    * triangle meshes, `mesh1` and `mesh2`. The distance is calculated by
-   * sampling points from `mesh1` and finding the closest points on `mesh2`.
+   * sampling points from `mesh` and finding the closest points on
+   * `target_mesh`.
    *
-   * @param mesh1 The first triangle mesh from which points are sampled.
-   * @param mesh2 The second triangle mesh to which distances are calculated.
+   * @param mesh The first triangle mesh from which points are sampled.
+   * @param target_mesh The second triangle mesh to which distances are
+   * calculated.
    * @param precision Desired precision for the computed asymmetric mean
    * Euclidean distance, influencing the sampling density on the mesh.
    * @return double The computed asymmetric mean Euclidean distance.
    */
-  static double AsymetricMeanEuclidean(const Trimesh& mesh1,
-                                       const Trimesh& mesh2, double precision);
+  static double AsymmetricMeanEuclidean(const Trimesh& mesh,
+                                        const Trimesh& target_mesh,
+                                        double precision);
 
   /**
    * @brief Computes the mean Euclidean distance between two triangle meshes.
@@ -96,22 +113,24 @@ class Distance {
     /**
      * @brief Constructs a Tree object with a given triangle mesh.
      *
-     * Constructor that initializes the Tree object with a given triangle mesh.
+     * Constructor that initializes the Tree object with a given triangle
+     * mesh.
      *
      * @param mesh The triangle mesh used to construct the tree.
      */
     Tree(const Trimesh& mesh);
 
     /**
-     * @brief Computes the unsigned Euclidean distance from a given point to the
-     * nearest point on the mesh.
+     * @brief Computes the unsigned Euclidean distance from a given point to
+     * the nearest point on the mesh.
      *
      * This method computes the unsigned Euclidean distance from a given point
      * to the nearest point on the mesh.
      *
-     * @param point The point from which the distance to the mesh is calculated.
-     * @return double The unsigned distance from the given point to the closest
-     * point on the mesh.
+     * @param point The point from which the distance to the mesh is
+     * calculated.
+     * @return double The unsigned distance from the given point to the
+     * closest point on the mesh.
      */
     double Distance(const Vector3d& point);
 
@@ -120,7 +139,8 @@ class Distance {
      *
      * This method finds the closest point on the mesh to a given point.
      *
-     * @param point The point from which the closest point on the mesh is found.
+     * @param point The point from which the closest point on the mesh is
+     * found.
      * @return Vector3d The closest point on the mesh to the given point.
      */
     Vector3d ClosestPoint(const Vector3d& point);
@@ -130,8 +150,8 @@ class Distance {
     enum class NearestEntity { V0, V1, V2, E01, E12, E02, F };
 
     /**
-     * Computes the squared distance, the nearest entity (vertex, edge or face)
-     * and the nearest point from a point to a triangle.
+     * Computes the squared distance, the nearest entity (vertex, edge or
+     * face) and the nearest point from a point to a triangle.
      */
     static void PointTriangleSqUnsigned(double& distance_sq,
                                         NearestEntity& nearestEntity,
@@ -274,25 +294,99 @@ class Distance {
   };
 };  // namespace
 
-double Distance::AsymetricMeanEuclidean(const Trimesh& sampled_mesh,
-                                        const Trimesh& destination_mesh,
-                                        double precision) {
-  const double ratio_precision_to_length =
-      3.764855876524;  // 18 / (2\sqrt{3} + \ln(\sqrt{3} + 2));
+double Distance::AsymmetricHausdorff(const Trimesh& mesh,
+                                     const Trimesh& target_mesh,
+                                     double precision) {
+  Tree tree(target_mesh);
+  double hausdorff_d = 0;
+  std::queue<std::pair<std::array<Vector3d, 3>, double>> q;
+  for (F f : mesh.Faces()) {
+    q.push(std::make_pair(
+        std::array<Vector3d, 3>{mesh.VPosition(mesh.HStart(3 * f)),
+                                mesh.VPosition(mesh.HStart(3 * f + 1)),
+                                mesh.VPosition(mesh.HStart(3 * f + 2))},
+        std::numeric_limits<double>::max()));
+  }
+  while (!q.empty()) {
+    auto [tri, cur_max] = q.front();
+    q.pop();
+    if (cur_max < hausdorff_d + precision) {
+      continue;
+    }
+    Vector3d bary = (tri[0] + tri[1] + tri[2]) / 3.;
+    double bary_dist = tree.Distance(bary);
+    hausdorff_d = std::max(hausdorff_d, bary_dist);
+    for (int i : {0, 1, 2}) {
+      double max_feasible = bary_dist + (tri[i] - bary).norm();
+      if (max_feasible > hausdorff_d + precision) {
+        Vector3d a = (tri[0] + tri[1]) / 2.0;
+        Vector3d b = (tri[1] + tri[2]) / 2.0;
+        Vector3d c = (tri[2] + tri[0]) / 2.0;
+        for (std::array<Vector3d, 3> sub_tri :
+             std::array<std::array<Vector3d, 3>, 4>{
+                 std::array<Vector3d, 3>{a, b, c},
+                 std::array<Vector3d, 3>{tri[0], a, c},
+                 std::array<Vector3d, 3>{tri[1], b, a},
+                 std::array<Vector3d, 3>{tri[2], c, b}}) {
+          q.push(std::make_pair(std::move(sub_tri), max_feasible));
+        }
+        break;
+      }
+    }
+  }
+  return hausdorff_d;
+}
+double Distance::Hausdorff(const Trimesh& mesh1, const Trimesh& mesh2,
+                           double precision) {
+  return std::max(AsymmetricHausdorff(mesh1, mesh2, precision),
+                  AsymmetricHausdorff(mesh2, mesh1, precision));
+}
+double Distance::AsymmetricMeanEuclidean(const Trimesh& mesh,
+                                         const Trimesh& target_mesh,
+                                         double precision) {
+  // 18 / (2\sqrt{3} + \ln(\sqrt{3} + 2));
+  const double ratio_precision_to_length = 3.764855876524;
   double distance = 0;
   double sum_area = 0;
-  Tree distance_tree(destination_mesh);
-  for (auto [point, area] : Sampling::BarycentersAndAreas(
-           sampled_mesh, precision * ratio_precision_to_length)) {
-    distance += area * distance_tree.Distance(point);
+  Tree distance_tree(target_mesh);
+  double sq_length = pow(precision * ratio_precision_to_length, 2);
+  std::function<void(std::array<Vector3d, 3>&&, double)> process_triangle =
+      [&](std::array<Vector3d, 3>&& tri, double area) {
+        if (std::max({(tri[1] - tri[0]).squaredNorm(),
+                      (tri[2] - tri[1]).squaredNorm(),
+                      (tri[0] - tri[2]).squaredNorm()}) <= sq_length) {
+          distance +=
+              area * distance_tree.Distance((tri[0] + tri[1] + tri[2]) / 3.0);
+          return;
+        }
+        area /= 4.0;
+        Vector3d a = (tri[0] + tri[1]) / 2.0;
+        Vector3d b = (tri[1] + tri[2]) / 2.0;
+        Vector3d c = (tri[2] + tri[0]) / 2.0;
+        for (std::array<Vector3d, 3> sub_tri :
+             std::array<std::array<Vector3d, 3>, 4>{
+                 std::array<Vector3d, 3>{a, b, c},
+                 std::array<Vector3d, 3>{tri[0], a, c},
+                 std::array<Vector3d, 3>{tri[1], b, a},
+                 std::array<Vector3d, 3>{tri[2], c, b}}) {
+          process_triangle(std::move(sub_tri), area);
+        }
+      };
+
+  for (TL::F f : mesh.Faces()) {
+    std::array<Vector3d, 3> tri{mesh.VPosition(mesh.HStart(3 * f)),
+                                mesh.VPosition(mesh.HStart(3 * f + 1)),
+                                mesh.VPosition(mesh.HStart(3 * f + 2))};
+    double area = mesh.FArea(f);
+    process_triangle(std::move(tri), area);
     sum_area += area;
   }
   return distance / sum_area;
 }
 double Distance::MeanEuclidean(const Trimesh& mesh1, const Trimesh& mesh2,
                                double precision) {
-  double distance1 = Distance::AsymetricMeanEuclidean(mesh1, mesh2, precision);
-  double distance2 = Distance::AsymetricMeanEuclidean(mesh2, mesh1, precision);
+  double distance1 = Distance::AsymmetricMeanEuclidean(mesh1, mesh2, precision);
+  double distance2 = Distance::AsymmetricMeanEuclidean(mesh2, mesh1, precision);
   return (distance1 + distance2) / 2.0;
 }
 Distance::Tree::Tree(const Trimesh& mesh) {
