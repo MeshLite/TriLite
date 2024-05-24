@@ -43,9 +43,9 @@ class TestMeshProcessing(unittest.TestCase):
         for filename in os.listdir(self.__class__.dataset_dir):
             with self.subTest(filename=filename):
                 filepath = os.path.join(self.__class__.dataset_dir, filename)
-                mesh = TL.ReadMeshFile(filepath)
+                mesh = TL.IO.ReadMeshFile(filepath)
                 target_face_count = mesh.NumFaces() // 2
-                TL.DecimateMesh(mesh, target_face_count)
+                TL.Processing.DecimateMesh(mesh, target_face_count)
                 self.assertLessEqual(
                     mesh.NumFaces(),
                     target_face_count,
@@ -56,14 +56,14 @@ class TestMeshProcessing(unittest.TestCase):
         for filename in os.listdir(self.__class__.dataset_dir):
             with self.subTest(filename=filename):
                 filepath = os.path.join(self.__class__.dataset_dir, filename)
-                mesh = TL.ReadMeshFile(filepath)
+                mesh = TL.IO.ReadMeshFile(filepath)
                 mesh.DisconnectFacesUntilManifold()
                 for h in range(mesh.NumHalfedges()):
                     self.assertTrue(mesh.EdgeIsManifold(h))
                 for v in range(mesh.NumVertices()):
                     self.assertTrue(mesh.VIsManifold(v))
 
-                TL.FillMeshHoles(mesh, 0)
+                TL.Processing.FillMeshHoles(mesh, 0)
 
                 for h in range(mesh.NumHalfedges()):
                     self.assertTrue(mesh.HOpposite(h) < mesh.NumHalfedges())
@@ -72,8 +72,8 @@ class TestMeshProcessing(unittest.TestCase):
         for filename in os.listdir(self.__class__.dataset_dir):
             with self.subTest(filename=filename):
                 filepath = os.path.join(self.__class__.dataset_dir, filename)
-                mesh = TL.ReadMeshFile(filepath)
-                TL.TaubinSmoothing(mesh, 1)
+                mesh = TL.IO.ReadMeshFile(filepath)
+                TL.Processing.TaubinSmoothing(mesh, 1)
 
 
 if __name__ == "__main__":

@@ -27,6 +27,7 @@
 #include <iomanip>
 
 #include "../Core/Trimesh.hpp"
+
 namespace TL {
 
 class IO {
