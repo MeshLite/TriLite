@@ -27,6 +27,7 @@ import sys
 
 
 class TestTrimesh(unittest.TestCase):
+
     @classmethod
     def setUpClass(cls):
         cls.mesh = TL.Trimesh()

@@ -25,7 +25,7 @@ import trilite as TL
 import os
 import sys
 import numpy as np
-from math import sqrt, log
+from math import sqrt, log, isfinite
 
 if len(sys.argv) < 2:
     print("Usage: python test_trimesh_functions.py /path/to/your/dataset")
@@ -34,31 +34,41 @@ if len(sys.argv) < 2:
 dataset_dir = sys.argv[1]
 
 
-class TestMeshProcessing(unittest.TestCase):
+class TestDistance(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
         cls.dataset_dir = dataset_dir
         cls.files = os.listdir(cls.dataset_dir)
 
-    def test_mean_distance_to_barycenter(self):
+    def test_distance_to_barycenter(self):
         v0 = np.array([0.0, 0.0, 0.0])
         v1 = np.array([1.0, 0.0, 0.0])
         v2 = np.array([0.5, 0.5 * sqrt(3), 0.0])
         mesh1 = TL.Trimesh([v0, v1, v2])
         bary = (v0 + v1 + v2) / 3.0
         mesh2 = TL.Trimesh(
-            [bary, bary + [0.0, 0.001, 1.0], bary + [0.0, -0.001, 1.0]]
+            [bary, bary + [0.0, 1e-12, 1.0], bary + [0.0, -1e-12, 1.0]]
         )
         self.assertAlmostEqual(
-            TL.Distance.AsymetricMeanEuclidean(mesh1, mesh2, 1e-2),
+            TL.Distance.AsymmetricMeanEuclidean(mesh1, mesh2, 1e-2),
             (2 * sqrt(3) + log(sqrt(3) + 2)) / 18.0,
             delta=1e-3,
         )
         self.assertAlmostEqual(
-            TL.Distance.AsymetricMeanEuclidean(mesh2, mesh1, 1e-2),
+            TL.Distance.AsymmetricMeanEuclidean(mesh2, mesh1, 1e-2),
             2.0 / 3.0,
             delta=1e-3,
+        )
+        self.assertAlmostEqual(
+            TL.Distance.AsymmetricHausdorff(mesh1, mesh2, 1e-10),
+            np.linalg.norm(bary),
+            delta=1e-10,
+        )
+        self.assertAlmostEqual(
+            TL.Distance.AsymmetricHausdorff(mesh2, mesh1, 1e-6),
+            1.0,
+            delta=1e-6,
         )
         tree = TL.Distance.Tree(mesh1)
         self.assertAlmostEqual(tree.Distance([0.0, 0.0, 1.0]), 1.0)
@@ -69,7 +79,7 @@ class TestMeshProcessing(unittest.TestCase):
             )
         )
 
-    def test_mean_distance_to_mesh(self):
+    def test_distance_to_mesh(self):
         ref_mesh = None
         for filename in os.listdir(self.__class__.dataset_dir):
             with self.subTest(filename=filename):
@@ -77,7 +87,19 @@ class TestMeshProcessing(unittest.TestCase):
                 mesh = TL.IO.ReadMeshFile(filepath)
                 if ref_mesh == None:
                     ref_mesh = mesh
-                TL.Distance.MeanEuclidean(mesh, ref_mesh, 1.0)
+                max_length = 0
+                for h in mesh.Halfedges():
+                    max_length = max(max_length, mesh.HLength(h))
+                if mesh.NumFaces() > 0 and isfinite(max_length):
+                    self.assertTrue(
+                        TL.Distance.AsymmetricMeanEuclidean(
+                            mesh, ref_mesh, max_length * 0.999
+                        )
+                        <= TL.Distance.AsymmetricHausdorff(
+                            mesh, ref_mesh, max_length * 0.1
+                        )
+                        + max_length * 0.1
+                    )
 
 
 if __name__ == "__main__":

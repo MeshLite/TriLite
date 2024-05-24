@@ -33,7 +33,7 @@ dataset_dir = sys.argv[1]
 output_dir = sys.argv[2]
 
 
-class TestTrimeshFunctions(unittest.TestCase):
+class TestIO(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
