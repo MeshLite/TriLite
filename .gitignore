@@ -1,0 +1,5 @@
+.clang-format
+python
+local
+docs
+.vscode
