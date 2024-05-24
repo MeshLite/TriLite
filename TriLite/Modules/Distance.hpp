@@ -71,6 +71,7 @@ class Distance {
    */
   static double Hausdorff(const Trimesh& mesh1, const Trimesh& mesh2,
                           double precision);
+
   /**
    * @brief Computes the asymmetric mean Euclidean distance between two triangle
    * meshes.
@@ -307,6 +308,7 @@ double Distance::AsymmetricHausdorff(const Trimesh& mesh,
                                 mesh.VPosition(mesh.HStart(3 * f + 2))},
         std::numeric_limits<double>::max()));
   }
+
   while (!q.empty()) {
     auto [tri, cur_max] = q.front();
     q.pop();
@@ -316,21 +318,21 @@ double Distance::AsymmetricHausdorff(const Trimesh& mesh,
     Vector3d bary = (tri[0] + tri[1] + tri[2]) / 3.;
     double bary_dist = tree.Distance(bary);
     hausdorff_d = std::max(hausdorff_d, bary_dist);
-    for (int i : {0, 1, 2}) {
-      double max_feasible = bary_dist + (tri[i] - bary).norm();
-      if (max_feasible > hausdorff_d + precision) {
-        Vector3d a = (tri[0] + tri[1]) / 2.0;
-        Vector3d b = (tri[1] + tri[2]) / 2.0;
-        Vector3d c = (tri[2] + tri[0]) / 2.0;
-        for (std::array<Vector3d, 3> sub_tri :
-             std::array<std::array<Vector3d, 3>, 4>{
-                 std::array<Vector3d, 3>{a, b, c},
-                 std::array<Vector3d, 3>{tri[0], a, c},
-                 std::array<Vector3d, 3>{tri[1], b, a},
-                 std::array<Vector3d, 3>{tri[2], c, b}}) {
-          q.push(std::make_pair(std::move(sub_tri), max_feasible));
-        }
-        break;
+    double max_feasible =
+        bary_dist + std::sqrt(std::max({(tri[0] - bary).squaredNorm(),
+                                        (tri[1] - bary).squaredNorm(),
+                                        (tri[2] - bary).squaredNorm()}));
+    if (max_feasible > hausdorff_d + precision) {
+      Vector3d a = (tri[0] + tri[1]) / 2.0;
+      Vector3d b = (tri[1] + tri[2]) / 2.0;
+      Vector3d c = (tri[2] + tri[0]) / 2.0;
+      for (std::array<Vector3d, 3> sub_tri :
+           std::array<std::array<Vector3d, 3>, 4>{
+               std::array<Vector3d, 3>{a, b, c},
+               std::array<Vector3d, 3>{tri[0], a, c},
+               std::array<Vector3d, 3>{tri[1], b, a},
+               std::array<Vector3d, 3>{tri[2], c, b}}) {
+        q.push(std::make_pair(std::move(sub_tri), max_feasible));
       }
     }
   }
