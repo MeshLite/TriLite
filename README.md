@@ -1,76 +1,118 @@
-# TriLite: A C++23 Trimesh Library
 
-TriLite is a modern C++23 library designed for efficient and easy manipulation and analysis of triangular meshes. It's built to be fast, flexible, and straightforward, making it suitable for both academic research and industrial applications in graphics, computational geometry, and 3D modeling. Each release is tested through a python binding on the Tringi10K dataset to ensure industrial robustness (see python/tests).
+# TriLite
+
+TriLite is a header-only C++ library designed for efficient manipulation of triangle meshes. It offers a variety of functionalities including mesh reading/writing, distance calculations, and mesh processing algorithms, all without relying on a garbage collector. This ensures that the mesh topology remains consistent across various operations, regardless of the format used for writing and reading back the mesh.
 
 ## Features
 
-- **Modern C++23 Codebase**: Utilizes the latest language features for optimal performance and easier maintenance.
-- **Header-Only Library**: Easy to integrate with other projects without the need for complicated build systems.
-- **Efficient Memory Management**: Optimized for low memory overhead while handling large mesh datasets.
-- **Extensive Mesh Formats**: Supports a variety of mesh formats to be easily incorporated in an existing project.
-- **Robust API Documentation**: Comprehensive documentation making it easier for new users to get started.
+- **Mesh I/O**: Supports multiple mesh file formats including STL, OBJ, OFF, and PLY.
+- **Distance Calculations**: Includes functions to compute Hausdorff and mean Euclidean distances between meshes.
+- **Mesh Processing**: Provides tools for mesh decimation, hole filling, and smoothing.
+- **Consistency**: Ensures the same mesh topology is maintained when writing and reading back meshes.
 
-## Getting Started
+## No Garbage Collector
 
+A unique aspect of TriLite is its design choice to avoid using a garbage collector. This means:
+- **Deterministic Resource Management**: Resources are managed deterministically, ensuring no unexpected memory management behavior.
+- **Consistent Mesh Topology**: When writing a mesh to a file and reading it back, the topology remains unchanged. For example, when writing an STL file, points that coincide are slightly adjusted to prevent merging when read back, preserving the original mesh structure.
+- **Compact Mesh Structure**: There can't be at any time any isolated vertex or any face marked as deleted (as with a garbage collector). If a face is deleted or a vertex becoming isolated, it is swapped with the last element and popped back to remove it definitively from the structure in O(1). Any order of operations always leads to a compact mesh structure.
+
+## Installation
+
+To use TriLite in C++, simply include the header files in your project. For Python bindings and tests, you can build, install and test the module using the provided Makefile.
+
+```sh
+make
+```
 ### Prerequisites
 
-- C++23 compiler that supports std::generator (e.g., GCC 14+)
-- If using python bindings (Makefile) : GCC 14+ and Eigen located in /usr/include/eigen3
+- g++-14 or later
+- Eigen3
+- Python 3.x
+- pybind11
+- numpy
 
-### Installing
+## Usage
 
-You can integrate TriLite into your project by including it as a submodule or directly adding the header files to your project.
-
-```bash
-git clone https://github.com/MeshLite/TriLite.git
-```
-
-You can test the python binding of this library by running make.
-The virtual env where the trilite module is installed can be activated with :
-```bash
-source python/bindings/venv/bin/activate
-```
-
-### Usage
-
-Here is a simple example on how to read a mesh, perform basic operation and write the result:
+### C++ Example
 
 ```cpp
-#include "TriLite/Core/Trimesh.hpp"
+#include "TriLite/Modules/Distance.hpp"
 #include "TriLite/Modules/IO.hpp"
-#include "TriLite/Modules/MeshProcessing.hpp"
+#include "TriLite/Modules/Processing.hpp"
+
 int main() {
-  TL::Trimesh mesh = TL::ReadMeshFile("bunny.obj");
-  TL::DecimateMesh(mesh, mesh.NumFaces() / 2);  // Simplify mesh by 50%
-  TL::WriteMeshFile(mesh, "out.stl");
+  // Reading a mesh
+  TL::Trimesh mesh1 = TL::IO::ReadMeshFile("input.obj");
+
+  // Copying the mesh
+  TL::Trimesh mesh2(mesh1);
+
+  // Decimating the copied mesh
+  TL::Processing::DecimateMesh(mesh2, 1000);
+
+  // Writing the decimated mesh back to a file
+  TL::IO::WriteMeshFile(mesh2, "output.stl");
+
+  // Calculating Hausdorff distance between the meshes
+  double distance = TL::Distance::Hausdorff(mesh1, mesh2, 1e-6);
+  std::cout << "Hausdorff distance: " << distance << std::endl;
+
+  return 0;
 }
 ```
 
-Or directly with python binding :
+### Python Example
+
 ```python
-    import trilite as TL
-    mesh = TL.IO.ReadMeshFile("bunny.obj)
-    TL.DecimateMesh(mesh, mesh.NumFaces() // 2)
-    TL.IO.WriteMeshFile(mesh, "out.stl")
+import trilite as TL
+
+# Reading a mesh
+mesh1 = TL.IO.ReadMeshFile("input.obj")
+
+# Copying the mesh
+mesh2 = TL.Trimesh(mesh1)
+
+# Decimating the copied mesh
+TL.Processing.DecimateMesh(mesh2, mesh2.NumFaces() // 4)
+
+# Writing the decimated mesh back to a file
+TL.IO.WriteMeshFile(mesh2, "output.stl")
+
+# Calculating Hausdorff distance between the meshes
+distance = TL.Distance.Hausdorff(mesh1, mesh2, 1e-6)
+print(f"Hausdorff distance: {distance}")
 ```
 
-## Code Formatting
+## Testing
 
-The C++ code in this library follows the [Google C++ Style Guide](https://google.github.io/styleguide/cppguide.html) recommandations.
-The python code in this library follows the [PEP8](https://peps.python.org/pep-0008/) recommandations.
+TriLite is rigorously tested over the entire [Thingi10k dataset](https://ten-thousand-models.appspot.com/). The Python tests for these are located in the `python/tests` directory. You can run these tests using:
 
-## Documentation
+```sh
+make DATASET=/path/to/Thingi10k/raw_meshes
+```
 
-For more detailed information and API descriptions, visit the [documentation page](https://MeshLite.github.io/TriLite).
+## Coding Standards
+
+- The C++ code follows the [Google C++ Style Guide](https://google.github.io/styleguide/cppguide.html).
+- The Python code follows [PEP8](https://peps.python.org/pep-0008/).
 
 ## License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
+## Contributing
+
+Contributions are welcome! Please fork the repository and submit a pull request.
+
+## Acknowledgements
+
+TriLite is developed and maintained by the MeshLite team. Special thanks to all the contributors and users who have supported this project.
+
 ## Contact
 
-For questions and feedback, please reach out to us at [meshlite.developers@gmail.com](mailto:meshlite.developers@gmail.com).
+For any questions or suggestions, please contact us at meshlite.developers@gmail.com.
 
 ## Support
 
-If you find this library useful and would like to support its development, consider starring it on GitHub.
+If you find this project useful, please consider giving it a star on GitHub. Your support is appreciated!
