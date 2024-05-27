@@ -68,6 +68,13 @@ class TestMeshProcessing(unittest.TestCase):
                 for h in range(mesh.NumHalfedges()):
                     self.assertTrue(mesh.HOpposite(h) < mesh.NumHalfedges())
 
+    def test_self_intersect(self):
+        for filename in os.listdir(self.__class__.dataset_dir):
+            with self.subTest(filename=filename):
+                filepath = os.path.join(self.__class__.dataset_dir, filename)
+                mesh = TL.IO.ReadMeshFile(filepath)
+                TL.Processing.RemoveSelfIntersections(mesh)
+
     def test_taubin_smoothing(self):
         for filename in os.listdir(self.__class__.dataset_dir):
             with self.subTest(filename=filename):
