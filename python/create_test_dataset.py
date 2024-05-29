@@ -54,6 +54,9 @@ def main():
         mesh = create_random_mesh(num_vertices, num_faces)
         filename = os.path.join(input_dir, f"mesh_{i}.stl")
         TL.IO.WriteMeshFile(mesh, filename, random.choice([False, True]))
+    mesh = TL.Trimesh()
+    filename = os.path.join(input_dir, f"empty_mesh.stl")
+    TL.IO.WriteMeshFile(mesh, filename)
 
 
 if __name__ == "__main__":
