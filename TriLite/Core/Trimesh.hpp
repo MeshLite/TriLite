@@ -301,6 +301,13 @@ class Trimesh {
   std::ranges::iota_view<H, H> FHalfedges(F f) const;
 
   /**
+   * @brief Returns a generator for neighboring faces of a given face.
+   * @param f The face index for which to find neighboring faces.
+   * @return std::generator<F> A generator for the indices of neighboring faces.
+   */
+  std::generator<F> FNeighbors(F f) const;
+
+  /**
    * @brief Returns a view of the vertices of the face.
    * @param f The face index.
    * @return A view of the vertex indices.
@@ -327,6 +334,22 @@ class Trimesh {
    * @return The area of the face.
    */
   double FArea(F f) const;
+
+  /**
+   * @brief Computes the axis-aligned bounding box (AABB) of a specific face.
+   * @param f The face index for which to compute the bounding box.
+   * @return A pair of Vector3d, where the first element is the minimum corner
+   * of the bounding box and the second element is the maximum corner of the
+   * bounding box.
+   */
+  inline std::pair<Vector3d, Vector3d> FBoundingBox(F f) const;
+
+  /**
+   * @brief Computes the centroid (mean) of a specific face.
+   * @param f The face index for which to compute the centroid.
+   * @return A Vector3d representing the centroid of the specified face.
+   */
+  inline Vector3d FCentroid(F f) const;
 
   /**
    * @brief Returns a generator for the halfedges forming an edge.
@@ -356,6 +379,22 @@ class Trimesh {
   auto BoundaryHalfedges() const;
 
   /**
+   * @brief Computes the axis-aligned bounding box (AABB) of the entire mesh.
+   * @return A pair of Vector3d, where the first element is the minimum corner
+   * of the bounding box and the second element is the maximum corner of the
+   * bounding box.
+   * @throws std::runtime_error if the mesh has no vertices.
+   */
+  std::pair<Vector3d, Vector3d> BoundingBox() const;
+
+  /**
+   * @brief Computes the centroid (mean) of all vertices in the mesh.
+   * @return A Vector3d representing the centroid of all vertices in the mesh.
+   * @throws std::runtime_error if the mesh has no vertices.
+   */
+  Vector3d Centroid() const;
+
+  /**
    * @brief Adds a face to the mesh.
    * @param triangle Array of three vertices or positions defining the triangle.
    * @return The face index.
@@ -368,6 +407,14 @@ class Trimesh {
    * @return A vector of vertices removed along with the face.
    */
   std::vector<V> RemoveFace(F f);
+
+  /**
+   * @brief Removes multiple face indices from the mesh.
+   * @param f_set A vector of face indices to remove (duplicates are ignored).
+   * @return A vector of vertices indices removed along with the faces in the
+   * order of deletion (vertex indices must be updated accordingly on the fly).
+   */
+  std::vector<V> RemoveFaces(std::vector<F> f_set);
 
   /**
    * @brief Collapses an edge and merges its vertices.
@@ -616,6 +663,14 @@ inline H Trimesh::FHalfedge(F f) const {
 inline std::ranges::iota_view<H, H> Trimesh::FHalfedges(F f) const {
   return std::views::iota(FHalfedge(f), H{3 * f + 3});
 }
+std::generator<F> Trimesh::FNeighbors(F f) const {
+  for (H h : FHalfedges(f)) {
+    H opp = HOpposite(h);
+    if (opp != kInvalidId) {
+      co_yield HFace(opp);
+    }
+  }
+}
 inline auto Trimesh::FVertices(F f) const {
   return std::views::transform(FHalfedges(f),
                                [this](H h) { return HStart(h); });
@@ -629,6 +684,19 @@ inline Vector3d Trimesh::FNormal(F f) const {
 }
 inline double Trimesh::FArea(F f) const {
   return 0.5 * HGeometry(3 * f).cross(HGeometry(3 * f + 2)).norm();
+}
+inline std::pair<Vector3d, Vector3d> Trimesh::FBoundingBox(F f) const {
+  return {VPosition(HStart(3 * f))
+              .cwiseMin(VPosition(HStart(3 * f + 1)))
+              .cwiseMin(VPosition(HStart(3 * f + 2))),
+          VPosition(HStart(3 * f))
+              .cwiseMax(VPosition(HStart(3 * f + 1)))
+              .cwiseMax(VPosition(HStart(3 * f + 2)))};
+}
+inline Vector3d Trimesh::FCentroid(F f) const {
+  return (VPosition(HStart(3 * f)) + VPosition(HStart(3 * f + 1)) +
+          VPosition(HStart(3 * f + 2))) /
+         3.0;
 }
 std::generator<H> Trimesh::EdgeHalfedges(H h) const {
   for (H he : VStartings(HStart(h))) {
@@ -657,6 +725,29 @@ bool Trimesh::EdgeIsManifold(H h) const {
 inline auto Trimesh::BoundaryHalfedges() const {
   return std::views::filter(Halfedges(),
                             [this](H h) { return HOpposite(h) == kInvalidId; });
+}
+std::pair<Vector3d, Vector3d> Trimesh::BoundingBox() const {
+  if (position_.empty()) {
+    throw std::runtime_error("Mesh has no vertices.");
+  }
+  Vector3d min = position_.front();
+  Vector3d max = min;
+  for (const auto& pos : position_) {
+    min = min.cwiseMin(pos);
+    max = max.cwiseMax(pos);
+  }
+  return {min, max};
+}
+Vector3d Trimesh::Centroid() const {
+  if (position_.empty()) {
+    throw std::runtime_error("Mesh has no vertices.");
+  }
+  Vector3d centroid = Vector3d::Zero();
+  for (const auto& pos : position_) {
+    centroid += pos;
+  }
+  centroid /= static_cast<double>(position_.size());
+  return centroid;
 }
 F Trimesh::AddFace(const std::array<std::variant<V, Vector3d>, 3>& triangle) {
   for (int i = 0; i < 3; i++) {
@@ -756,6 +847,25 @@ std::vector<V> Trimesh::RemoveFace(F f) {
   }
   return removed_vertices;
 }
+std::vector<V> Trimesh::RemoveFaces(std::vector<F> faces) {
+  std::ranges::sort(faces);
+  const auto [first, last] = std::ranges::unique(faces);
+  faces.erase(first, last);
+  std::vector<V> removed_vertices;
+  for (std::size_t i = 0; i < faces.size();) {
+    F f = faces[i];
+    std::vector<V> removed = RemoveFace(f);
+    removed_vertices.insert(removed_vertices.end(), removed.begin(),
+                            removed.end());
+    if (faces.back() == NumFaces()) {
+      faces.pop_back();
+    } else {
+      i++;
+    }
+  }
+  return removed_vertices;
+}
+
 std::pair<std::vector<F>, std::vector<V>> Trimesh::CollapseEdge(H h) {
   std::vector<V> removed_vertices;
   std::vector<F> removed_faces = EdgeFaces(h) | std::ranges::to<std::vector>();

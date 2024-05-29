@@ -94,6 +94,7 @@ class TestTrimesh(unittest.TestCase):
         # Face properties
         self.assertEqual(mesh.FHalfedge(0), 0)
         self.assertEqual(len(mesh.FHalfedges(0)), 3)
+        self.assertEqual(mesh.FNeighbors(0), [1])
         self.assertEqual(len(mesh.FVertices(0)), 3)
         self.assertEqual(len(mesh.FPositions(0)), 3)
         self.assertTrue(np.allclose(mesh.FNormal(0), [0, 0, 1]))
@@ -106,6 +107,27 @@ class TestTrimesh(unittest.TestCase):
 
         # Boundary halfedges
         self.assertGreaterEqual(len(mesh.BoundaryHalfedges()), 0)
+
+        # Centroid
+        f_centroid_0 = mesh.FCentroid(0)
+        expected_f_centroid_0 = np.array([2 / 3, 1 / 3, 0.0])
+        self.assertTrue(np.allclose(f_centroid_0, expected_f_centroid_0))
+        centroid = mesh.Centroid()
+        expected_centroid = np.array([0.5, 0.5, 0.0])
+        self.assertTrue(np.allclose(centroid, expected_centroid))
+
+        # Bounding box
+        f_bbox_0 = mesh.FBoundingBox(0)
+        expected_f_bbox_0 = (
+            np.array([0.0, 0.0, 0.0]),
+            np.array([1.0, 1.0, 0.0]),
+        )
+        self.assertTrue(np.allclose(f_bbox_0[0], expected_f_bbox_0[0]))
+        self.assertTrue(np.allclose(f_bbox_0[1], expected_f_bbox_0[1]))
+        bbox = mesh.BoundingBox()
+        expected_bbox = (np.array([0.0, 0.0, 0.0]), np.array([1.0, 1.0, 0.0]))
+        self.assertTrue(np.allclose(bbox[0], expected_bbox[0]))
+        self.assertTrue(np.allclose(bbox[1], expected_bbox[1]))
 
         # Modify mesh
         mesh.AddFace(

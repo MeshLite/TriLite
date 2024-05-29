@@ -101,6 +101,10 @@ PYBIND11_MODULE(trilite, m) {
            [](const Trimesh& trimesh, F f) {
              return std::ranges::to<std::vector>(trimesh.FHalfedges(f));
            })
+      .def("FNeighbors",
+           [](const Trimesh& trimesh, F f) {
+             return std::ranges::to<std::vector>(trimesh.FNeighbors(f));
+           })
       .def("FVertices",
            [](const Trimesh& trimesh, F f) {
              return std::ranges::to<std::vector>(trimesh.FVertices(f));
@@ -110,6 +114,8 @@ PYBIND11_MODULE(trilite, m) {
              return std::ranges::to<std::vector>(trimesh.FPositions(f));
            })
       .def("FNormal", &Trimesh::FNormal)
+      .def("FBoundingBox", &Trimesh::FBoundingBox)
+      .def("FCentroid", &Trimesh::FCentroid)
       .def("FArea", &Trimesh::FArea)
       .def("EdgeHalfedges",
            [](const Trimesh& trimesh, H h) {
@@ -124,6 +130,8 @@ PYBIND11_MODULE(trilite, m) {
            [](const Trimesh& trimesh) {
              return std::ranges::to<std::vector>(trimesh.BoundaryHalfedges());
            })
+      .def("BoundingBox", &Trimesh::BoundingBox)
+      .def("Centroid", &Trimesh::Centroid)
       .def("AddFace", &Trimesh::AddFace)
       .def("RemoveFace", &Trimesh::RemoveFace)
       .def("CollapseEdge", &Trimesh::CollapseEdge)
@@ -156,7 +164,11 @@ PYBIND11_MODULE(trilite, m) {
       .def_static("TaubinSmoothing", &Processing::TaubinSmoothing,
                   "Apply Laplacian smoothing to a mesh", py::arg("mesh"),
                   py::arg("iterations") = 1, py::arg("lambda") = 0.5,
-                  py::arg("mu") = -0.53);
+                  py::arg("mu") = -0.53)
+      .def_static(
+          "RemoveSelfIntersections", &Processing::RemoveSelfIntersections,
+          "A function to remove self-intersections in a triangular mesh",
+          py::arg("mesh"));
 
   py::class_<Distance>(m, "Distance")
       .def_static(
