@@ -1,6 +1,6 @@
 # MIT License
 #
-# Copyright (c) 2024 TriLite https:#github.com/MeshLite/TriLite
+# Copyright (c) 2024 TriLite https://github.com/MeshLite/TriLite
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -67,6 +67,13 @@ class TestMeshProcessing(unittest.TestCase):
 
                 for h in range(mesh.NumHalfedges()):
                     self.assertTrue(mesh.HOpposite(h) < mesh.NumHalfedges())
+
+    def test_printability_heuristics(self):
+        for filename in os.listdir(self.__class__.dataset_dir):
+            with self.subTest(filename=filename):
+                filepath = os.path.join(self.__class__.dataset_dir, filename)
+                mesh = TL.IO.ReadMeshFile(filepath)
+                TL.Processing.PrintabilityHeuristics(mesh, 1)
 
     def test_self_intersect(self):
         for filename in os.listdir(self.__class__.dataset_dir):

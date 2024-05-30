@@ -1,6 +1,6 @@
 # MIT License
 #
-# Copyright (c) 2024 TriLite https:#github.com/MeshLite/TriLite
+# Copyright (c) 2024 TriLite https://github.com/MeshLite/TriLite
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -71,6 +71,9 @@ class TestTrimesh(unittest.TestCase):
         self.assertTrue(
             np.array_equal(mesh.HGeometry(0), np.array([1.0, 0.0, 0.0]))
         )
+        self.assertTrue(
+            np.array_equal(mesh.HCentroid(1), np.array([1.0, 0.5, 0.0]))
+        )
 
         self.assertEqual(len(mesh.HConnectionsAroundStart(0)), 2)
 
@@ -139,9 +142,28 @@ class TestTrimesh(unittest.TestCase):
         )
 
         self.assertEqual(len(mesh.RemoveFace(0)), 1)
-        self.assertEqual(len(mesh.CollapseEdge(0)), 2)
-
+        self.assertEqual(mesh.CollapseEdge(0), ([0], [1, 1, 1]))
+        self.assertEqual(mesh.RemoveFace(0), [0, 1, 0])
+        mesh.AddFace(
+            [
+                np.array([0.0, 1.0, 0.0]),
+                np.array([1.0, 0.0, 0.0]),
+                np.array([1.0, 1.0, 0.0]),
+            ]
+        )
+        mesh.AddFace([mesh.HEnd(0), mesh.HStart(0), np.array([1.0, 1.0, 1.0])])
+        mesh.SplitEdge(0)
+        self.assertEqual(mesh.NumFaces(), 4)
+        mesh.CollapseEdge(0)
+        self.assertEqual(mesh.NumFaces(), 2)
+        mesh.FlipHalfedgeWithOpposite(0)
+        self.assertEqual(mesh.HStart(0), 3)
+        for _ in range(3):
+            mesh.FlipHalfedgeWithOpposite(0)
+        self.assertEqual(mesh.HStart(0), 0)
         mesh.AddFace([0, 1, 2])
+        self.assertEqual(mesh.FNeighbors(0), [1])
+        mesh.RemoveFace(1)
         self.assertEqual(mesh.NumVertices(), 3)
         mesh.DisconnectFace(0)
         self.assertEqual(mesh.NumVertices(), 6)

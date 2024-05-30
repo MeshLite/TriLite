@@ -63,7 +63,208 @@ class Processing {
    */
   static void RemoveSelfIntersections(Trimesh& mesh);
 
+  /**
+   * @brief Prepares a triangular mesh for 3D printing by iteratively closing it
+   * while applying several cleaning and repair steps (only the largest
+   * connected component is preserved).
+   * @param mesh Reference to the Trimesh object to be prepared.
+   * @param niters The number of iterations to perform (default is 10).
+   */
+  static void PrintabilityHeuristics(Trimesh& mesh, int niters = 10);
+
  private:
+  static void ClampEdgeLengths(Trimesh& mesh, double min_length,
+                               double max_length, int niters = 100) {
+    for (int i = 0; i < niters; i++) {
+      bool stop = true;
+      for (H h : mesh.Halfedges()) {
+        if (mesh.HLength(h) > max_length || mesh.HLength(h) < min_length) {
+          stop = false;
+          break;
+        }
+      }
+      if (stop) {
+        break;
+      }
+      F nf = mesh.NumFaces();
+      std::vector<V> edge_to_v(mesh.NumHalfedges(), kInvalidId);
+      std::vector<F> rm_faces;
+      std::vector<std::vector<H>> edge_halfedges(mesh.NumHalfedges());
+      for (H h : mesh.Halfedges()) {
+        edge_halfedges[h] = std::ranges::to<std::vector>(mesh.EdgeHalfedges(h));
+      }
+      for (F f = 0; f < nf; f++) {
+        int ct = 0;
+        H he{kInvalidId};
+        for (H h : mesh.FHalfedges(f)) {
+          if (edge_to_v[h] != kInvalidId ||
+              mesh.HLength(edge_halfedges[h].front()) > max_length) {
+            ++ct;
+            he = h;
+          }
+        }
+        if (ct > 1) {
+          rm_faces.push_back(f);
+          std::vector<V> verts = {mesh.HStart(3 * f), mesh.HStart(3 * f + 1),
+                                  mesh.HStart(3 * f + 2)};
+          std::array<std::variant<V, Vector3d>, 3> centroids = {
+              mesh.HCentroid(3 * f), mesh.HCentroid(3 * f + 1),
+              mesh.HCentroid(3 * f + 2)};
+          V num_v = mesh.NumVertices();
+          for (int j : {0, 1, 2}) {
+            if (edge_to_v[3 * f + j] != kInvalidId) {
+              assert(edge_to_v[3 * f + j] < mesh.NumVertices());
+              centroids[j] = edge_to_v[3 * f + j];
+            } else {
+              bool flag = false;
+              for (H g : edge_halfedges[3 * f + j]) {
+                flag |= (g == 3 * f + j);
+                edge_to_v[g] = num_v;
+              }
+              assert(flag);
+              ++num_v;
+            }
+          }
+          mesh.AddFace(centroids);
+          mesh.AddFace({verts[0], edge_to_v[3 * f], edge_to_v[3 * f + 2]});
+          mesh.AddFace({verts[1], edge_to_v[3 * f + 1], edge_to_v[3 * f]});
+          mesh.AddFace({verts[2], edge_to_v[3 * f + 2], edge_to_v[3 * f + 1]});
+        } else if (ct == 1) {
+          rm_faces.push_back(f);
+          std::variant<V, Vector3d> centroid{mesh.HCentroid(he)};
+          if (edge_to_v[he] != kInvalidId) {
+            centroid = edge_to_v[he];
+          } else {
+            for (H g : edge_halfedges[he]) {  // mesh.EdgeHalfedges(he)) {
+              edge_to_v[g] = mesh.NumVertices();
+            }
+          }
+          mesh.AddFace(
+              {mesh.HStart(mesh.HPrev(he)), mesh.HStart(he), centroid});
+          centroid = edge_to_v[he];
+          mesh.AddFace({mesh.HEnd(he), mesh.HStart(mesh.HPrev(he)), centroid});
+        }
+      }
+      mesh.RemoveFaces(rm_faces);
+      CollapseSmallEdges(mesh, min_length);
+    }
+  }
+  static void CollapseSmallEdges(Trimesh& mesh, double min_length) {
+    for (F f = 0; f < mesh.NumFaces();) {
+      bool flag = true;
+      for (H h : mesh.FHalfedges(f)) {
+        if (mesh.HLength(h) < min_length) {
+          mesh.CollapseEdge(h);
+          flag = false;
+          break;
+        }
+      }
+      f += flag;
+    }
+  }
+  static std::pair<TL::Vector3d, double> CalculateCircumsphere(
+      const TL::Vector3d& a, const TL::Vector3d& b, const TL::Vector3d& c) {
+    TL::Vector3d ac = c - a;
+    TL::Vector3d ab = b - a;
+    TL::Vector3d abxac = ab.cross(ac);
+
+    TL::Vector3d to_circumsphere_center = (abxac.cross(ab) * ac.squaredNorm() +
+                                           ac.cross(abxac) * ab.squaredNorm()) /
+                                          (2.0 * abxac.squaredNorm());
+    double circumsphere_radius = to_circumsphere_center.norm();
+    TL::Vector3d ccs = a + to_circumsphere_center;
+
+    return std::make_pair(ccs, circumsphere_radius);
+  }
+  static bool IsDelaunay(const TL::Trimesh& mesh, TL::H h) {
+    TL::H hopp = mesh.HOpposite(h);
+    if (hopp == TL::kInvalidId) {
+      return true;
+    }
+    TL::Vector3d a = mesh.VPosition(mesh.HStart(h));
+    TL::Vector3d b = mesh.VPosition(mesh.HEnd(h));
+    TL::Vector3d c = mesh.VPosition(mesh.HEnd(mesh.HNext(h)));
+    TL::Vector3d d = mesh.VPosition(mesh.HEnd(mesh.HNext(hopp)));
+    std::pair<TL::Vector3d, double> sphere = CalculateCircumsphere(a, b, c);
+    return (sphere.first - d).norm() >= (sphere.second);
+  }
+  static void MakeDelaunay(TL::Trimesh& mesh) {
+    std::queue<TL::H> edge_queue;
+    for (TL::H h : mesh.Halfedges()) {
+      if (mesh.HOpposite(h) != TL::kInvalidId &&
+          mesh.HOpposite(h) / 3 != mesh.HOpposite(mesh.HNext(h)) / 3) {
+        edge_queue.push(h);
+      }
+    }
+    size_t count = 0;
+    size_t limit = 10 * mesh.NumFaces();
+    while (!edge_queue.empty()) {
+      if (count++ == limit) {
+        break;
+      }
+      TL::H h = edge_queue.front();
+      edge_queue.pop();
+      TL::H hopp = mesh.HOpposite(h);
+      if (hopp != TL::kInvalidId && !IsDelaunay(mesh, h)) {
+        TL::V v1 = mesh.HStart(mesh.HPrev(h));
+        TL::V v2 = mesh.HStart(mesh.HPrev(hopp));
+        bool valid = true;
+        for (TL::H he : mesh.VStartings(v1)) {
+          valid &= (mesh.HEnd(he) != v2);
+        }
+        for (TL::H he : mesh.VStartings(v2)) {
+          valid &= (mesh.HEnd(he) != v1);
+        }
+        if (valid) {
+          mesh.FlipHalfedgeWithOpposite(h);
+          edge_queue.push(mesh.HNext(h));
+          edge_queue.push(mesh.HPrev(h));
+          edge_queue.push(mesh.HNext(hopp));
+          edge_queue.push(mesh.HPrev(hopp));
+        }
+      }
+    }
+  }
+  static void RetainLargestComponent(TL::Trimesh& mesh) {
+    std::vector<bool> visited(mesh.NumFaces(), false);
+    std::vector<std::vector<F>> components;
+    for (F f = 0; f < mesh.NumFaces(); ++f) {
+      if (!visited[f]) {
+        std::vector<F> component;
+        std::vector<F> stack;
+        stack.push_back(f);
+        while (!stack.empty()) {
+          F current = stack.back();
+          stack.pop_back();
+          if (visited[current]) continue;
+          visited[current] = true;
+          component.push_back(current);
+          for (F neighbor : mesh.FNeighbors(current)) {
+            if (!visited[neighbor]) {
+              stack.push_back(neighbor);
+            }
+          }
+        }
+        components.push_back(component);
+      }
+    }
+    size_t max_id = 0;
+    for (size_t i = 1; i < components.size(); i++) {
+      if (components[i].size() > components[max_id].size()) {
+        max_id = i;
+      }
+    }
+    std::vector<F> faces_to_delete;
+    for (size_t i = 0; i < components.size(); i++) {
+      if (i != max_id) {
+        for (F f : components[i]) {
+          faces_to_delete.push_back(f);
+        }
+      }
+    }
+    mesh.RemoveFaces(faces_to_delete);
+  }
+
   struct BVHNode {
     Eigen::AlignedBox3d bbox_;
     std::optional<std::pair<TL::F, std::array<Vector3d, 3>>> triangle_;
@@ -404,11 +605,57 @@ void Processing::FillMeshHoles(Trimesh& mesh, size_t target_hole_count) {
       break;
     }
     assert(polygon.size() >= 3);
-    V v0 = mesh.HStart(polygon[0]);
-    for (size_t i = 1; i < polygon.size() - 1; ++i) {
-      V v1 = mesh.HStart(polygon[i]);
-      V v2 = mesh.HStart(polygon[i + 1]);
-      mesh.AddFace({v0, v2, v1});
+    std::vector<double> sum_angle(polygon.size());
+    auto set_sum_angle = [&mesh, &polygon, &sum_angle](size_t i) {
+      H h = polygon[i];
+      sum_angle[i] = 0;
+      for (H he : mesh.HConnectionsAroundStart(h)) {
+        sum_angle[i] += std::acos(mesh.HGeometry(he).normalized().dot(
+            -mesh.HGeometry(mesh.HPrev(he)).normalized()));
+      }
+    };
+    auto cmp = [&mesh, &sum_angle](std::pair<size_t, double> a,
+                                   std::pair<size_t, double> b) {
+      return a.second < b.second;
+    };
+    std::priority_queue<std::pair<size_t, double>,
+                        std::vector<std::pair<size_t, double>>, decltype(cmp)>
+        q(cmp);
+    for (size_t i = 0; i < polygon.size(); i++) {
+      set_sum_angle(i);
+      q.push(std::make_pair(i, sum_angle[i]));
+    }
+
+    std::set<std::pair<size_t, H>> s;
+    for (size_t i = 0; i < polygon.size(); i++) {
+      s.insert(std::make_pair(i, polygon[i]));
+    }
+    while (!q.empty() && s.size() >= 3) {
+      auto [i1, angle] = q.top();
+      q.pop();
+      if (angle != sum_angle[i1]) {
+        continue;
+      }
+      H h1 = polygon[i1];
+      auto it = s.find(std::make_pair(i1, h1));
+      if (it == s.end()) {
+        continue;
+      }
+      auto [i0, h0] = *((it == s.begin()) ? std::prev(s.end()) : std::prev(it));
+      auto [i2, h2] = *((std::next(it) == s.end()) ? s.begin() : std::next(it));
+
+      mesh.AddFace({mesh.HStart(h0), mesh.HStart(h2), mesh.HStart(h1)});
+      sum_angle[i0] += std::acos(
+          mesh.HGeometry(mesh.NumHalfedges() - 3)
+              .normalized()
+              .dot(-mesh.HGeometry(mesh.NumHalfedges() - 1).normalized()));
+      q.push(std::make_pair(i0, sum_angle[i0]));
+      sum_angle[i2] += std::acos(
+          mesh.HGeometry(mesh.NumHalfedges() - 2)
+              .normalized()
+              .dot(-mesh.HGeometry(mesh.NumHalfedges() - 3).normalized()));
+      q.push(std::make_pair(i2, sum_angle[i2]));
+      s.erase(it);
     }
   }
 }
@@ -460,6 +707,30 @@ void Processing::RemoveSelfIntersections(Trimesh& mesh) {
   mesh.RemoveFaces(rm_faces);
 }
 
+void Processing::PrintabilityHeuristics(Trimesh& mesh, int niters) {
+  if (mesh.NumFaces() == 0) {
+    return;
+  }
+  RetainLargestComponent(mesh);
+  std::vector<double> lengths(mesh.NumHalfedges());
+  for (H h : mesh.Halfedges()) {
+    lengths[h] = mesh.HLength(h);
+  }
+  std::sort(lengths.begin(), lengths.end());
+  double max_length = 2.0 * lengths[lengths.size() / 2];
+  double min_length = 0.5 * lengths[lengths.size() / 2];
+  for (int i = 0; i < niters; i++) {
+    ClampEdgeLengths(mesh, min_length, max_length);
+    TL::Processing::RemoveSelfIntersections(mesh);
+    mesh.DisconnectFacesUntilManifold();
+    RetainLargestComponent(mesh);
+    TL::Processing::FillMeshHoles(mesh, 0);
+    mesh.DisconnectFacesUntilManifold();
+    RetainLargestComponent(mesh);
+    MakeDelaunay(mesh);
+    TL::Processing::TaubinSmoothing(mesh);
+  }
+}
 }  // namespace TL
 
 #endif  // MESH_PROCESSING_HPP

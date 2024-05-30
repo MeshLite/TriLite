@@ -7,7 +7,7 @@ TriLite is a header-only C++ library designed for efficient manipulation of tria
 
 - **Mesh I/O**: Supports multiple mesh file formats including STL, OBJ, OFF, and PLY.
 - **Distance Calculations**: Includes functions to compute Hausdorff and mean Euclidean distances between meshes.
-- **Mesh Processing**: Provides tools for mesh decimation, hole filling, and smoothing.
+- **Mesh Processing**: Provides tools for mesh decimation, hole filling, smoothing, and repairing for 3D printing.
 - **Consistency**: Ensures the same mesh topology is maintained when writing and reading back meshes.
 
 ## No Garbage Collector
@@ -15,7 +15,7 @@ TriLite is a header-only C++ library designed for efficient manipulation of tria
 A unique aspect of TriLite is its design choice to avoid using a garbage collector. This means:
 - **Deterministic Resource Management**: Resources are managed deterministically, ensuring no unexpected memory management behavior.
 - **Consistent Mesh Topology**: When writing a mesh to a file and reading it back, the topology remains unchanged. For example, when writing an STL file, points that coincide are slightly adjusted to prevent merging when read back, preserving the original mesh structure.
-- **Compact Mesh Structure**: There can't be at any time any isolated vertex or any face marked as deleted (as with a garbage collector). If a face is deleted or a vertex becoming isolated, it is swapped with the last element and popped back to remove it definitively from the structure in O(1). Any order of operations always leads to a compact mesh structure.
+- **Compact Mesh Structure**: There can't be at any time any isolated vertex or any face marked as deleted (as with a garbage collector). If a face is deleted or a vertex becoming isolated, it is swapped with the last element and popped back to remove it definitively from the structure in O(L) (with L the largest vertex valence). Any order of operations always leads to a compact mesh structure.
 
 ## Installation
 
