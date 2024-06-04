@@ -67,6 +67,7 @@ PYBIND11_MODULE(trilite, m) {
       .def("HNextAroundEnd", &Trimesh::HNextAroundEnd)
       .def("HPrevAroundEnd", &Trimesh::HPrevAroundEnd)
       .def("HGeometry", &Trimesh::HGeometry)
+      .def("HCentroid", &Trimesh::HCentroid)
       .def("HConnectionsAroundStart",
            [](const Trimesh& trimesh, H h) {
              return std::ranges::to<std::vector>(
@@ -135,6 +136,8 @@ PYBIND11_MODULE(trilite, m) {
       .def("AddFace", &Trimesh::AddFace)
       .def("RemoveFace", &Trimesh::RemoveFace)
       .def("CollapseEdge", &Trimesh::CollapseEdge)
+      .def("FlipHalfedgeWithOpposite", &Trimesh::FlipHalfedgeWithOpposite)
+      .def("SplitEdge", &Trimesh::SplitEdge)
       .def("DisconnectFace", &Trimesh::DisconnectFace)
       .def("DisconnectFacesUntilManifoldEdges",
            &Trimesh::DisconnectFacesUntilManifoldEdges)
@@ -168,7 +171,12 @@ PYBIND11_MODULE(trilite, m) {
       .def_static(
           "RemoveSelfIntersections", &Processing::RemoveSelfIntersections,
           "A function to remove self-intersections in a triangular mesh",
-          py::arg("mesh"));
+          py::arg("mesh"))
+      .def_static("PrintabilityHeuristics", &Processing::PrintabilityHeuristics,
+                  "Prepares a triangular mesh for 3D printing by iteratively "
+                  "closing it while applying several cleaning and repair steps "
+                  "(only the largest connected component is preserved)",
+                  py::arg("mesh"), py::arg("niters") = 10);
 
   py::class_<Distance>(m, "Distance")
       .def_static(
