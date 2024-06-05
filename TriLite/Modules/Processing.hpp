@@ -74,7 +74,7 @@ class Processing {
 
  private:
   static void ClampEdgeLengths(Trimesh& mesh, double min_length,
-                               double max_length, int niters = 100) {
+                               double max_length, int niters = 5) {
     for (int i = 0; i < niters; i++) {
       bool stop = true;
       for (H h : mesh.Halfedges()) {
@@ -197,7 +197,7 @@ class Processing {
       }
     }
     size_t count = 0;
-    size_t limit = 10 * mesh.NumFaces();
+    size_t limit = 3 * mesh.NumFaces();
     while (!edge_queue.empty()) {
       if (count++ == limit) {
         break;
@@ -610,8 +610,10 @@ void Processing::FillMeshHoles(Trimesh& mesh, size_t target_hole_count) {
       H h = polygon[i];
       sum_angle[i] = 0;
       for (H he : mesh.HConnectionsAroundStart(h)) {
-        sum_angle[i] += std::acos(mesh.HGeometry(he).normalized().dot(
-            -mesh.HGeometry(mesh.HPrev(he)).normalized()));
+        sum_angle[i] += std::acos(
+            std::clamp(mesh.HGeometry(he).normalized().dot(
+                           -mesh.HGeometry(mesh.HPrev(he)).normalized()),
+                       -1.0, 1.0));
       }
     };
     auto cmp = [&mesh, &sum_angle](std::pair<size_t, double> a,
@@ -645,15 +647,17 @@ void Processing::FillMeshHoles(Trimesh& mesh, size_t target_hole_count) {
       auto [i2, h2] = *((std::next(it) == s.end()) ? s.begin() : std::next(it));
 
       mesh.AddFace({mesh.HStart(h0), mesh.HStart(h2), mesh.HStart(h1)});
-      sum_angle[i0] += std::acos(
+      sum_angle[i0] += std::acos(std::clamp(
           mesh.HGeometry(mesh.NumHalfedges() - 3)
               .normalized()
-              .dot(-mesh.HGeometry(mesh.NumHalfedges() - 1).normalized()));
+              .dot(-mesh.HGeometry(mesh.NumHalfedges() - 1).normalized()),
+          -1.0, 1.0));
       q.push(std::make_pair(i0, sum_angle[i0]));
-      sum_angle[i2] += std::acos(
+      sum_angle[i2] += std::acos(std::clamp(
           mesh.HGeometry(mesh.NumHalfedges() - 2)
               .normalized()
-              .dot(-mesh.HGeometry(mesh.NumHalfedges() - 3).normalized()));
+              .dot(-mesh.HGeometry(mesh.NumHalfedges() - 3).normalized()),
+          -1.0, 1.0));
       q.push(std::make_pair(i2, sum_angle[i2]));
       s.erase(it);
     }

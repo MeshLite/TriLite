@@ -1,30 +1,35 @@
+![TriLite Mesh Repairing](https://raw.githubusercontent.com/MeshLite/TriLite/images/scan_mesh_repair.png)
 
-# TriLite
+*Figure : The TriLite library provides tools to repair a [scanned mesh](http://redwood-data.org/3dscan/models.html?i=1833), resulting in a watertight mesh.*
 
 TriLite is a header-only C++ library designed for efficient manipulation of triangle meshes. It offers a variety of functionalities including mesh reading/writing, distance calculations, and mesh processing algorithms, all without relying on a garbage collector. This ensures that the mesh topology remains consistent across various operations, regardless of the format used for writing and reading back the mesh.
 
-## Features
+Features
+========
 
 - **Mesh I/O**: Supports multiple mesh file formats including STL, OBJ, OFF, and PLY.
 - **Distance Calculations**: Includes functions to compute Hausdorff and mean Euclidean distances between meshes.
 - **Mesh Processing**: Provides tools for mesh decimation, hole filling, smoothing, and repairing for 3D printing.
 - **Consistency**: Ensures the same mesh topology is maintained when writing and reading back meshes.
 
-## No Garbage Collector
+No Garbage Collector
+====================
 
 A unique aspect of TriLite is its design choice to avoid using a garbage collector. This means:
-- **Deterministic Resource Management**: Resources are managed deterministically, ensuring no unexpected memory management behavior.
-- **Consistent Mesh Topology**: When writing a mesh to a file and reading it back, the topology remains unchanged. For example, when writing an STL file, points that coincide are slightly adjusted to prevent merging when read back, preserving the original mesh structure.
 - **Compact Mesh Structure**: There can't be at any time any isolated vertex or any face marked as deleted (as with a garbage collector). If a face is deleted or a vertex becoming isolated, it is swapped with the last element and popped back to remove it definitively from the structure in O(L) (with L the largest vertex valence). Any order of operations always leads to a compact mesh structure.
+- **Consistent Mesh Topology**: When writing a mesh to a file and reading it back, the topology remains unchanged. For example, when writing an STL file, points that coincide are slightly adjusted to prevent merging when read back, preserving the original mesh structure.
 
-## Installation
+Installation
+============
 
 To use TriLite in C++, simply include the header files in your project. For Python bindings and tests, you can build, install and test the module using the provided Makefile.
 
 ```sh
 make
 ```
-### Prerequisites
+
+Prerequisites
+=============
 
 - g++-14 or later
 - Eigen3
@@ -32,7 +37,8 @@ make
 - pybind11
 - numpy
 
-## Usage
+Usage
+=====
 
 ### C++ Example
 
@@ -84,7 +90,8 @@ distance = TL.Distance.Hausdorff(mesh1, mesh2, 1e-6)
 print(f"Hausdorff distance: {distance}")
 ```
 
-## Testing
+Testing
+=======
 
 TriLite is rigorously tested over the entire [Thingi10k dataset](https://ten-thousand-models.appspot.com/). The Python tests for these are located in the `python/tests` directory. You can run these tests using:
 
@@ -92,27 +99,33 @@ TriLite is rigorously tested over the entire [Thingi10k dataset](https://ten-tho
 make DATASET=/path/to/Thingi10k/raw_meshes
 ```
 
-## Coding Standards
+Coding Standards
+================
 
 - The C++ code follows the [Google C++ Style Guide](https://google.github.io/styleguide/cppguide.html).
 - The Python code follows [PEP8](https://peps.python.org/pep-0008/).
 
-## License
+License
+=======
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
-## Contributing
+Contributing
+============
 
 Contributions are welcome! Please fork the repository and submit a pull request.
 
-## Acknowledgements
+Acknowledgements
+================
 
 TriLite is developed and maintained by the MeshLite team. Special thanks to all the contributors and users who have supported this project.
 
-## Contact
+Contact
+=======
 
 For any questions or suggestions, please contact us at meshlite.developers@gmail.com.
 
-## Support
+Support
+=======
 
 If you find this project useful, please consider giving it a star on GitHub. Your support is appreciated!
