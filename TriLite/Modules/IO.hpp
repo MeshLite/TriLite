@@ -20,11 +20,14 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-#ifndef TRILITE_IO_H
-#define TRILITE_IO_H
+#ifndef TRILITE_IO_HPP
+#define TRILITE_IO_HPP
 
+#include <cstdint>
+#include <cstring>
 #include <fstream>
 #include <iomanip>
+#include <unordered_map>
 
 #include "../Core/Trimesh.hpp"
 
@@ -144,7 +147,7 @@ class IO {
       auto ptr = binaryData.data() + 80 + 4 + 50 * i;
       for (int j : std::views::iota(1, 4)) {
         for (int k : std::views::iota(0, 3)) {
-          memcpy(&x, ptr + j * 12 + k * 4, 4);
+          std::memcpy(&x, ptr + j * 12 + k * 4, 4);
           points[3 * i + j - 1][k] = x;
         }
       }
@@ -159,7 +162,7 @@ class IO {
     file.read(reinterpret_cast<char*>(&nTriangles), sizeof(nTriangles));
     file.seekg(0, std::ios::end);
     std::streampos fileSize = file.tellg();
-    if (nTriangles * 50 + 84 == fileSize || strncmp(header, "solid", 5)) {
+    if (nTriangles * 50 + 84 == fileSize || std::strncmp(header, "solid", 5)) {
       return ReadBinarySTL(filepath);
     } else {
       return ReadAsciiSTL(filepath);
@@ -468,9 +471,8 @@ class IO {
       file.close();
     } else {
       double increment = pow(10, 1 - kAsciiDigitsPrecision_);
-      std::vector<Vector3d> positions{
-          std::ranges::to<std::vector>(mesh.Positions())};
-      std::vector<V> ids{std::ranges::to<std::vector>(mesh.Vertices())};
+      std::vector<Vector3d> positions{ToVector<Vector3d>(mesh.Positions())};
+      std::vector<V> ids{ToVector<V>(mesh.Vertices())};
       std::sort(ids.begin(), ids.end(), [&positions](int u, int v) {
         return positions[u][0] < positions[v][0];
       });
@@ -595,4 +597,4 @@ void IO::WriteMeshFile(const Trimesh& mesh, const std::string& filepath,
 
 }  // namespace TL
 
-#endif  // TRILITE_IO_H
+#endif  // TRILITE_IO_HPP

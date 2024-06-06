@@ -22,7 +22,18 @@ A unique aspect of TriLite is its design choice to avoid using a garbage collect
 Installation
 ============
 
-To use TriLite in C++, simply include the header files in your project. For Python bindings and tests, you can build, install and test the module using the provided Makefile.
+### C++ Usage
+To integrate TriLite into your C++ project, include the header files and compile with the Eigen flag.
+
+### Python Usage
+For Python, you can install the latest released version via pip:
+
+```sh
+sudo apt-get install -y g++-12 libeigen3-dev
+pip install trilite
+```
+
+Alternatively, you can build, install, and test the module using the provided Makefile:
 
 ```sh
 make
@@ -31,7 +42,7 @@ make
 Prerequisites
 =============
 
-- g++-14 or later
+- g++-12 or later
 - Eigen3
 - Python 3.x
 - pybind11
@@ -55,7 +66,7 @@ int main() {
   TL::Trimesh mesh2(mesh1);
 
   // Decimating the copied mesh
-  TL::Processing::DecimateMesh(mesh2, 1000);
+  TL::Processing::DecimateMesh(mesh2, mesh2.NumFaces() / 4);
 
   // Writing the decimated mesh back to a file
   TL::IO::WriteMeshFile(mesh2, "output.stl");

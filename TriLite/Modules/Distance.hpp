@@ -21,7 +21,9 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-#pragma once
+#ifndef TRILITE_DISTANCE_HPP
+#define TRILITE_DISTANCE_HPP
+
 #include <algorithm>
 #include <array>
 #include <cmath>
@@ -375,7 +377,7 @@ double Distance::AsymmetricMeanEuclidean(const Trimesh& mesh,
         }
       };
 
-  for (TL::F f : mesh.Faces()) {
+  for (F f : mesh.Faces()) {
     std::array<Vector3d, 3> tri{mesh.VPosition(mesh.HStart(3 * f)),
                                 mesh.VPosition(mesh.HStart(3 * f + 1)),
                                 mesh.VPosition(mesh.HStart(3 * f + 2))};
@@ -398,8 +400,9 @@ Distance::Tree::Tree(const Trimesh& mesh) {
   }
   std::vector<std::array<int, 3>> triangles(mesh.NumFaces());
   for (F f : mesh.Faces()) {
-    for (auto [i, v] : std::views::enumerate(mesh.FVertices(f))) {
-      triangles[f][i] = v;
+    int i = 0;
+    for (V v : mesh.FVertices(f)) {
+      triangles[f][i++] = v;
     }
   }
   this->Construct(vertices, triangles);
@@ -717,3 +720,5 @@ void Distance::Tree::BuildTree(const int node_id,
   }
 }
 }  // namespace TL
+
+#endif  // TRILITE_DISTANCE_HPP

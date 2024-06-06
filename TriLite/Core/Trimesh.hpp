@@ -20,24 +20,27 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-#ifndef TRILITE_MESH_H
-#define TRILITE_MESH_H
+#ifndef TRILITE_TRIMESH_HPP
+#define TRILITE_TRIMESH_HPP
 
 #include <Eigen/Eigen>
-#include <generator>
+#include <map>
 #include <memory>
 #include <queue>
+#include <ranges>
 #include <unordered_set>
+#include <variant>
+
+#include "Generator.hpp"
 
 namespace TL {
-
+using Eigen::Vector3d;
 enum MeshComponent { kHalfedge, kVertex, kFace };
 using Index = unsigned int;
 using H = Index;
 using V = Index;
 using F = Index;
 constexpr Index kInvalidId = std::numeric_limits<Index>::max();
-using Eigen::Vector3d;
 /**
  * @class Trimesh
  * @brief Represents a triangle mesh using a half-edge data structure.
@@ -50,7 +53,8 @@ class Trimesh {
   Trimesh();
 
   /**
-   * @brief Constructs a Trimesh from a vector of vertices and their positions.
+   * @brief Constructs a Trimesh from a vector of vertices and their
+   * positions.
    * @param tri_points Vector of vertices and positions defining the triangle
    * mesh.
    */
@@ -202,19 +206,19 @@ class Trimesh {
   inline Vector3d HCentroid(H h) const;
 
   /**
-   * @brief Returns a generator for the halfedges connected around the starting
-   * vertex.
+   * @brief Returns a generator for the halfedges connected around the
+   * starting vertex.
    * @param st_h The starting halfedge.
    * @return A generator for the connected halfedges.
    */
-  std::generator<H> HConnectionsAroundStart(H st_h) const;
+  Generator<H> HConnectionsAroundStart(H st_h) const;
 
   /**
    * @brief Returns a generator for the halfedges around a hole.
    * @param st_h The starting halfedge of the hole.
    * @return A generator for the halfedges around the hole.
    */
-  std::generator<H> HHalfedgesAroundHole(H st_h) const;
+  Generator<H> HHalfedgesAroundHole(H st_h) const;
 
   /**
    * @brief Returns the length of the halfedge.
@@ -242,21 +246,21 @@ class Trimesh {
    * @param v The vertex index.
    * @return A generator for the starting halfedges.
    */
-  std::generator<H> VStartings(V v) const;
+  Generator<H> VStartings(V v) const;
 
   /**
    * @brief Returns a generator for the ending halfedges of the vertex.
    * @param v The vertex index.
    * @return A generator for the ending halfedges.
    */
-  std::generator<H> VEndings(V v) const;
+  Generator<H> VEndings(V v) const;
 
   /**
    * @brief Returns a view of the faces connected to the vertex.
    * @param v The vertex index.
    * @return A view of the face indices.
    */
-  auto VFaces(V v) const;
+  Generator<F> VFaces(V v) const;
 
   /**
    * @brief Returns the position of the vertex.
@@ -310,9 +314,9 @@ class Trimesh {
   /**
    * @brief Returns a generator for neighboring faces of a given face.
    * @param f The face index for which to find neighboring faces.
-   * @return std::generator<F> A generator for the indices of neighboring faces.
+   * @return Generator<F> A generator for the indices of neighboring faces.
    */
-  std::generator<F> FNeighbors(F f) const;
+  Generator<F> FNeighbors(F f) const;
 
   /**
    * @brief Returns a view of the vertices of the face.
@@ -363,14 +367,14 @@ class Trimesh {
    * @param h The halfedge index.
    * @return A generator for the halfedges forming the edge.
    */
-  std::generator<H> EdgeHalfedges(H h) const;
+  Generator<H> EdgeHalfedges(H h) const;
 
   /**
    * @brief Returns a view of the faces connected by an edge.
    * @param h The halfedge index.
    * @return A view of the face indices.
    */
-  auto EdgeFaces(H h) const;
+  Generator<F> EdgeFaces(H h) const;
 
   /**
    * @brief Checks if the edge is manifold.
@@ -403,7 +407,8 @@ class Trimesh {
 
   /**
    * @brief Adds a face to the mesh.
-   * @param triangle Array of three vertices or positions defining the triangle.
+   * @param triangle Array of three vertices or positions defining the
+   * triangle.
    * @return The face index.
    */
   F AddFace(const std::array<std::variant<V, Vector3d>, 3>& triangle);
@@ -419,7 +424,8 @@ class Trimesh {
    * @brief Removes multiple face indices from the mesh.
    * @param f_set A vector of face indices to remove (duplicates are ignored).
    * @return A vector of vertices indices removed along with the faces in the
-   * order of deletion (vertex indices must be updated accordingly on the fly).
+   * order of deletion (vertex indices must be updated accordingly on the
+   * fly).
    */
   std::vector<V> RemoveFaces(std::vector<F> f_set);
 
@@ -481,8 +487,8 @@ class Trimesh {
    * @tparam T The attribute type.
    * @param key The key identifying the attribute.
    * @return A reference view of the attribute.
-   * @throws std::invalid_argument if the attribute does not exist or type does
-   * not match.
+   * @throws std::invalid_argument if the attribute does not exist or type
+   * does not match.
    */
   template <MeshComponent C, typename T>
   std::ranges::ref_view<std::vector<T>> GetAttribute(const std::string& key);
@@ -617,7 +623,7 @@ inline Vector3d Trimesh::HGeometry(H h) const {
 inline Vector3d Trimesh::HCentroid(H h) const {
   return (VPosition(HEnd(h)) + VPosition(HStart(h))) / 2.0;
 }
-std::generator<H> Trimesh::HConnectionsAroundStart(H st_h) const {
+Generator<H> Trimesh::HConnectionsAroundStart(H st_h) const {
   H h = st_h;
   while (HOpposite(h) != kInvalidId) {
     assert(EdgeIsManifold(h));
@@ -633,7 +639,7 @@ std::generator<H> Trimesh::HConnectionsAroundStart(H st_h) const {
     h = HNextAroundStart(h);
   } while (h != st_h && h != kInvalidId);
 }
-std::generator<H> Trimesh::HHalfedgesAroundHole(H st_h) const {
+Generator<H> Trimesh::HHalfedgesAroundHole(H st_h) const {
   assert(HOpposite(st_h) == kInvalidId);
   H h = st_h;
   do {
@@ -648,18 +654,20 @@ std::generator<H> Trimesh::HHalfedgesAroundHole(H st_h) const {
 inline double Trimesh::HLength(H h) const { return HGeometry(h).norm(); }
 inline H Trimesh::VStarting(V v) const { return vStart_.at(v); }
 inline H Trimesh::VEnding(V v) const { return HPrev(VStarting(v)); }
-std::generator<H> Trimesh::VStartings(V v) const {
+Generator<H> Trimesh::VStartings(V v) const {
   for (H h = VStarting(v); h != kInvalidId; h = hCoStart_[h]) {
     co_yield h;
   }
 }
-std::generator<H> Trimesh::VEndings(V v) const {
+Generator<H> Trimesh::VEndings(V v) const {
   for (H h : VStartings(v)) {
     co_yield HPrev(h);
   }
 }
-auto Trimesh::VFaces(TL::V v) const {
-  return std::views::transform(VStartings(v), [this](H h) { return HFace(h); });
+Generator<F> Trimesh::VFaces(V v) const {
+  for (H h : VStartings(v)) {
+    co_yield HFace(h);
+  }
 }
 inline Vector3d& Trimesh::VPosition(V v) { return position_.at(v); }
 inline const Vector3d& Trimesh::VPosition(V v) const { return position_.at(v); }
@@ -676,8 +684,15 @@ size_t Trimesh::VValence(V v) const {
   return ans;
 }
 bool Trimesh::VIsManifold(V v) const {
-  return (std::ranges::to<std::vector>(HConnectionsAroundStart(VStarting(v))))
-             .size() == (std::ranges::to<std::vector>(VStartings(v))).size();
+  int ct1 = 0;
+  for ([[maybe_unused]] H h : HConnectionsAroundStart(VStarting(v))) {
+    ++ct1;
+  }
+  int ct2 = 0;
+  for ([[maybe_unused]] H h : VStartings(v)) {
+    ++ct2;
+  }
+  return ct1 == ct2;
 }
 inline H Trimesh::FHalfedge(F f) const {
   assert(f < NumFaces());
@@ -686,7 +701,7 @@ inline H Trimesh::FHalfedge(F f) const {
 inline std::ranges::iota_view<H, H> Trimesh::FHalfedges(F f) const {
   return std::views::iota(FHalfedge(f), H{3 * f + 3});
 }
-std::generator<F> Trimesh::FNeighbors(F f) const {
+Generator<F> Trimesh::FNeighbors(F f) const {
   for (H h : FHalfedges(f)) {
     H opp = HOpposite(h);
     if (opp != kInvalidId) {
@@ -721,7 +736,7 @@ inline Vector3d Trimesh::FCentroid(F f) const {
           VPosition(HStart(3 * f + 2))) /
          3.0;
 }
-std::generator<H> Trimesh::EdgeHalfedges(H h) const {
+Generator<H> Trimesh::EdgeHalfedges(H h) const {
   for (H he : VStartings(HStart(h))) {
     if (HEnd(he) == HEnd(h)) {
       co_yield (he);
@@ -733,9 +748,10 @@ std::generator<H> Trimesh::EdgeHalfedges(H h) const {
     }
   }
 }
-auto Trimesh::EdgeFaces(H h) const {
-  return std::views::transform(EdgeHalfedges(h),
-                               [this](H h) { return HFace(h); });
+Generator<F> Trimesh::EdgeFaces(H h) const {
+  for (H h : EdgeHalfedges(h)) {
+    co_yield HFace(h);
+  }
 }
 bool Trimesh::EdgeIsManifold(H h) const {
   for (H g : EdgeHalfedges(h)) {
@@ -890,7 +906,7 @@ std::vector<V> Trimesh::RemoveFaces(std::vector<F> faces) {
 }
 std::pair<std::vector<F>, std::vector<V>> Trimesh::CollapseEdge(H h) {
   std::vector<V> removed_vertices;
-  std::vector<F> removed_faces = EdgeFaces(h) | std::ranges::to<std::vector>();
+  std::vector<F> removed_faces = ToVector<F>(EdgeFaces(h));
   std::array<V, 2> verts = {HStart(h), HEnd(h)};
   Vector3d midpoint = (VPosition(verts[0]) + VPosition(verts[1])) / 2.0;
   V last_vert_id = NumVertices() - 1;
@@ -957,7 +973,7 @@ std::pair<std::vector<F>, std::vector<V>> Trimesh::CollapseEdge(H h) {
 void Trimesh::SplitEdge(H h) {
   std::variant<V, Vector3d> new_p = HCentroid(h);
   std::array<std::variant<V, Vector3d>, 3> tri;
-  for (H he : std::ranges::to<std::vector>(EdgeHalfedges(h))) {
+  for (H he : ToVector<H>(EdgeHalfedges(h))) {
     tri = {new_p, HEnd(he), HStart(HPrev(he))};
     std::rotate(tri.begin(), tri.begin() + (3 - (he % 3)) % 3, tri.end());
     AddFace(tri);
@@ -1071,4 +1087,4 @@ void Trimesh::EraseAttribute(const std::string& key) {
 
 }  // namespace TL
 
-#endif  // TRILITE_GENERATOR_H
+#endif  // TRILITE_TRIMESH_HPP

@@ -42,19 +42,17 @@ PYBIND11_MODULE(trilite, m) {
       .def("NumFaces", &Trimesh::NumFaces)
       .def("Halfedges",
            [](const Trimesh& trimesh) {
-             return std::ranges::to<std::vector>(trimesh.Halfedges());
+             return ToVector<H>(trimesh.Halfedges());
            })
       .def("Vertices",
            [](const Trimesh& trimesh) {
-             return std::ranges::to<std::vector>(trimesh.Vertices());
+             return ToVector<V>(trimesh.Vertices());
            })
       .def("Faces",
-           [](const Trimesh& trimesh) {
-             return std::ranges::to<std::vector>(trimesh.Faces());
-           })
+           [](const Trimesh& trimesh) { return ToVector<F>(trimesh.Faces()); })
       .def("Positions",
            [](const Trimesh& trimesh) {
-             return std::ranges::to<std::vector>(trimesh.Positions());
+             return ToVector<Vector3d>(trimesh.Positions());
            })
       .def("HNext", &Trimesh::HNext)
       .def("HPrev", &Trimesh::HPrev)
@@ -70,49 +68,35 @@ PYBIND11_MODULE(trilite, m) {
       .def("HCentroid", &Trimesh::HCentroid)
       .def("HConnectionsAroundStart",
            [](const Trimesh& trimesh, H h) {
-             return std::ranges::to<std::vector>(
-                 trimesh.HConnectionsAroundStart(h));
+             return ToVector<H>(trimesh.HConnectionsAroundStart(h));
            })
       .def("HHalfedgesAroundHole",
            [](const Trimesh& trimesh, H h) {
-             return std::ranges::to<std::vector>(
-                 trimesh.HHalfedgesAroundHole(h));
+             return ToVector<H>(trimesh.HHalfedgesAroundHole(h));
            })
       .def("HLength", &Trimesh::HLength)
       .def("VStarting", &Trimesh::VStarting)
       .def("VEnding", &Trimesh::VEnding)
-      .def("VStartings",
-           [](const Trimesh& trimesh, V v) {
-             return std::ranges::to<std::vector>(trimesh.VStartings(v));
-           })
-      .def("VEndings",
-           [](const Trimesh& trimesh, V v) {
-             return std::ranges::to<std::vector>(trimesh.VEndings(v));
-           })
-      .def("VFaces",
-           [](const Trimesh& trimesh, V v) {
-             return std::ranges::to<std::vector>(trimesh.VFaces(v));
-           })
+      .def("VStartings", [](const Trimesh& trimesh,
+                            V v) { return ToVector<H>(trimesh.VStartings(v)); })
+      .def("VEndings", [](const Trimesh& trimesh,
+                          V v) { return ToVector<H>(trimesh.VEndings(v)); })
+      .def("VFaces", [](const Trimesh& trimesh,
+                        V v) { return ToVector<F>(trimesh.VFaces(v)); })
       .def("VPosition", py::overload_cast<V>(&Trimesh::VPosition, py::const_))
       .def("VNormal", &Trimesh::VNormal)
       .def("VValence", &Trimesh::VValence)
       .def("VIsManifold", &Trimesh::VIsManifold)
       .def("FHalfedge", &Trimesh::FHalfedge)
-      .def("FHalfedges",
-           [](const Trimesh& trimesh, F f) {
-             return std::ranges::to<std::vector>(trimesh.FHalfedges(f));
-           })
-      .def("FNeighbors",
-           [](const Trimesh& trimesh, F f) {
-             return std::ranges::to<std::vector>(trimesh.FNeighbors(f));
-           })
-      .def("FVertices",
-           [](const Trimesh& trimesh, F f) {
-             return std::ranges::to<std::vector>(trimesh.FVertices(f));
-           })
+      .def("FHalfedges", [](const Trimesh& trimesh,
+                            F f) { return ToVector<H>(trimesh.FHalfedges(f)); })
+      .def("FNeighbors", [](const Trimesh& trimesh,
+                            F f) { return ToVector<H>(trimesh.FNeighbors(f)); })
+      .def("FVertices", [](const Trimesh& trimesh,
+                           F f) { return ToVector<V>(trimesh.FVertices(f)); })
       .def("FPositions",
            [](const Trimesh& trimesh, F f) {
-             return std::ranges::to<std::vector>(trimesh.FPositions(f));
+             return ToVector<Vector3d>(trimesh.FPositions(f));
            })
       .def("FNormal", &Trimesh::FNormal)
       .def("FBoundingBox", &Trimesh::FBoundingBox)
@@ -120,16 +104,14 @@ PYBIND11_MODULE(trilite, m) {
       .def("FArea", &Trimesh::FArea)
       .def("EdgeHalfedges",
            [](const Trimesh& trimesh, H h) {
-             return std::ranges::to<std::vector>(trimesh.EdgeHalfedges(h));
+             return ToVector<H>(trimesh.EdgeHalfedges(h));
            })
-      .def("EdgeFaces",
-           [](const Trimesh& trimesh, H h) {
-             return std::ranges::to<std::vector>(trimesh.EdgeFaces(h));
-           })
+      .def("EdgeFaces", [](const Trimesh& trimesh,
+                           H h) { return ToVector<F>(trimesh.EdgeFaces(h)); })
       .def("EdgeIsManifold", &Trimesh::EdgeIsManifold)
       .def("BoundaryHalfedges",
            [](const Trimesh& trimesh) {
-             return std::ranges::to<std::vector>(trimesh.BoundaryHalfedges());
+             return ToVector<H>(trimesh.BoundaryHalfedges());
            })
       .def("BoundingBox", &Trimesh::BoundingBox)
       .def("Centroid", &Trimesh::Centroid)

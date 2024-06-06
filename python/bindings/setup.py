@@ -25,8 +25,8 @@ import pybind11
 import os
 
 # Specify the compiler and linker
-os.environ["CC"] = "g++-14"
-os.environ["CXX"] = "g++-14"
+os.environ["CC"] = "g++-12"
+os.environ["CXX"] = "g++-12"
 
 ext_modules = [
     Extension(
@@ -38,13 +38,13 @@ ext_modules = [
             "/usr/include/eigen3",
         ],
         language="c++",
-        extra_compile_args=["-std=c++23"],
+        extra_compile_args=["-std=c++20"],
     ),
 ]
 
 setup(
     name="trilite",
-    version="0.1",
+    version="0.3.2",
     author="MeshLite",
     author_email="meshlite.developers@gmail.com",
     description="Python binding for the TriLite library",
