@@ -192,7 +192,14 @@ class Trimesh {
    * @param h The halfedge index.
    * @return The geometric vector.
    */
-  Vector3d HGeometry(H h) const;
+  inline Vector3d HGeometry(H h) const;
+
+  /**
+   * @brief Computes the centroid (mean) position of a specific halfedge.
+   * @param h The halfedge index for which to compute the centroid.
+   * @return A Vector3d representing the centroid of the specified halfedge.
+   */
+  inline Vector3d HCentroid(H h) const;
 
   /**
    * @brief Returns a generator for the halfedges connected around the starting
@@ -424,7 +431,20 @@ class Trimesh {
   std::pair<std::vector<F>, std::vector<V>> CollapseEdge(H h);
 
   /**
-   * @brief Disconnects a face from the mesh, converting it to a boundary face.
+   * @brief Splits an edge and the incident faces.
+   * @param h The halfedge index.
+   */
+  void SplitEdge(H h);
+
+  /**
+   * @brief Flips an edge shared by two adjacent triangles.
+   * @param h The halfedge index representing the edge to flip.
+   */
+  void FlipHalfedgeWithOpposite(H h);
+
+  /**
+   * @brief Disconnects a face from the mesh, converting it to a boundary
+   * face.
    * @param f The face index.
    */
   void DisconnectFace(F f);
@@ -593,6 +613,9 @@ inline H Trimesh::HNextAroundEnd(H h) const {
 inline H Trimesh::HPrevAroundEnd(H h) const { return HOpposite(HNext(h)); }
 inline Vector3d Trimesh::HGeometry(H h) const {
   return VPosition(HEnd(h)) - VPosition(HStart(h));
+}
+inline Vector3d Trimesh::HCentroid(H h) const {
+  return (VPosition(HEnd(h)) + VPosition(HStart(h))) / 2.0;
 }
 std::generator<H> Trimesh::HConnectionsAroundStart(H st_h) const {
   H h = st_h;
@@ -780,8 +803,8 @@ F Trimesh::AddFace(const std::array<std::variant<V, Vector3d>, 3>& triangle) {
       h_attr->IncrementSize();
     }
     hStart_.push_back(v);
-    hCoStart_.push_back(vStart_[v]);
-    vStart_[v] = h;
+    hCoStart_.push_back(vStart_.at(v));
+    vStart_.at(v) = h;
   }
   return HFace(h_offset);
 }
@@ -865,7 +888,6 @@ std::vector<V> Trimesh::RemoveFaces(std::vector<F> faces) {
   }
   return removed_vertices;
 }
-
 std::pair<std::vector<F>, std::vector<V>> Trimesh::CollapseEdge(H h) {
   std::vector<V> removed_vertices;
   std::vector<F> removed_faces = EdgeFaces(h) | std::ranges::to<std::vector>();
@@ -931,6 +953,38 @@ std::pair<std::vector<F>, std::vector<V>> Trimesh::CollapseEdge(H h) {
     }
   }
   return std::make_pair(std::move(removed_faces), std::move(removed_vertices));
+}
+void Trimesh::SplitEdge(H h) {
+  std::variant<V, Vector3d> new_p = HCentroid(h);
+  std::array<std::variant<V, Vector3d>, 3> tri;
+  for (H he : std::ranges::to<std::vector>(EdgeHalfedges(h))) {
+    tri = {new_p, HEnd(he), HStart(HPrev(he))};
+    std::rotate(tri.begin(), tri.begin() + (3 - (he % 3)) % 3, tri.end());
+    AddFace(tri);
+    new_p = NumVertices() - 1;
+    tri = {HStart(he), new_p, HStart(HPrev(he))};
+    std::rotate(tri.begin(), tri.begin() + (3 - (he % 3)) % 3, tri.end());
+    AddFace(tri);
+    RemoveFace(HFace(he));
+  }
+}
+void Trimesh::FlipHalfedgeWithOpposite(H h) {
+  H hopp = HOpposite(h);
+  if (hopp == kInvalidId) {
+    throw std::invalid_argument("h param needs opposite to perform edge flip");
+  }
+  std::array<V, 4> verts{HStart(h), HEnd(h), HEnd(HNext(h)), HEnd(HNext(hopp))};
+  if (verts[2] == verts[3]) {
+    throw std::invalid_argument("Opp faces are identical, edge flip fails");
+  }
+  std::array<std::variant<V, Vector3d>, 3> tri = {verts[3], verts[2], verts[0]};
+  std::rotate(tri.begin(), tri.begin() + (3 - (h % 3)) % 3, tri.end());
+  AddFace(tri);
+  RemoveFace(HFace(h));
+  tri = {verts[2], verts[3], verts[1]};
+  std::rotate(tri.begin(), tri.begin() + (3 - (hopp % 3)) % 3, tri.end());
+  AddFace(tri);
+  RemoveFace(HFace(hopp));
 }
 void Trimesh::DisconnectFace(F f) {
   AddFace({VPosition(HStart(3 * f)), VPosition(HStart(3 * f + 1)),
