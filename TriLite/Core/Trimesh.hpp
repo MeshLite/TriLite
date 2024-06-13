@@ -398,7 +398,7 @@ class Trimesh {
 
   /**
    * @brief Computes the median edge length of the triangular mesh.
-   * @return The median length of all edges in the mesh (or 0.0 if no edges).
+   * @return The median length of all edges in the mesh (or 0.0 if no edge).
    */
   double MedianEdgeLength() const;
 
@@ -417,6 +417,44 @@ class Trimesh {
    * @throws std::runtime_error if the mesh has no vertices.
    */
   Vector3d Centroid() const;
+
+  /**
+   * @brief Applies a rotation to the mesh.
+   * @param rotation The rotation matrix.
+   */
+  void ApplyRotation(const Eigen::Matrix3d& rotation);
+
+  /**
+   * @brief Applies a translation to the mesh.
+   * @param translation The translation vector.
+   */
+  void ApplyTranslation(const Eigen::Vector3d& translation);
+
+  /**
+   * @brief Applies a scaling to the mesh.
+   * @param scaling The scaling factor.
+   */
+  void ApplyScaling(const double scaling);
+
+  /**
+   * @brief Applies a rigid transformation (rotation and translation) to the
+   * mesh.
+   * @param rotation The rotation matrix.
+   * @param translation The translation vector.
+   */
+  void ApplyRigidTransformation(const Eigen::Matrix3d& rotation,
+                                const Eigen::Vector3d& translation);
+
+  /**
+   * @brief Applies a similarity transformation (rotation, translation, and
+   * scaling) to the mesh.
+   * @param rotation The rotation matrix.
+   * @param translation The translation vector.
+   * @param scaling The scaling factor.
+   */
+  void ApplySimilarityTransformation(const Eigen::Matrix3d& rotation,
+                                     const Eigen::Vector3d& translation,
+                                     const double scaling);
 
   /**
    * @brief Adds a face to the mesh.
@@ -821,6 +859,34 @@ Vector3d Trimesh::Centroid() const {
   }
   centroid /= static_cast<double>(position_.size());
   return centroid;
+}
+void Trimesh::ApplyRotation(const Eigen::Matrix3d& rotation) {
+  for (auto v : Vertices()) {
+    position_[v] = rotation * position_[v];
+  }
+}
+void Trimesh::ApplyTranslation(const Eigen::Vector3d& translation) {
+  for (auto v : Vertices()) {
+    position_[v] += translation;
+  }
+}
+void Trimesh::ApplyScaling(const double scaling) {
+  for (auto v : Vertices()) {
+    position_[v] *= scaling;
+  }
+}
+void Trimesh::ApplyRigidTransformation(const Eigen::Matrix3d& rotation,
+                                       const Eigen::Vector3d& translation) {
+  for (auto v : Vertices()) {
+    position_[v] = rotation * position_[v] + translation;
+  }
+}
+void Trimesh::ApplySimilarityTransformation(const Eigen::Matrix3d& rotation,
+                                            const Eigen::Vector3d& translation,
+                                            const double scaling) {
+  for (auto v : Vertices()) {
+    position_[v] = scaling * (rotation * position_[v]) + translation;
+  }
 }
 F Trimesh::AddFace(const std::array<std::variant<V, Vector3d>, 3>& triangle) {
   for (int i = 0; i < 3; i++) {

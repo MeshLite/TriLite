@@ -48,7 +48,7 @@ class TestIO(unittest.TestCase):
                 filepath = os.path.join(self.__class__.dataset_dir, filename)
 
                 mesh = TL.IO.ReadMeshFile(filepath)
-
+                TL.Processing.Simplify(mesh, 0.05, True)
                 structure = [[] for _ in range(mesh.NumVertices())]
                 for v in range(mesh.NumVertices()):
                     structure[v] = mesh.VStartings(v)
