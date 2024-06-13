@@ -298,6 +298,13 @@ class Trimesh {
   bool VIsManifold(V v) const;
 
   /**
+   * @brief Checks if the vertex is in boundary.
+   * @param v The vertex index.
+   * @return True if the vertex is in boundary, false otherwise.
+   */
+  bool VIsBoundary(V v) const;
+
+  /**
    * @brief Returns the halfedge associated with the face.
    * @param f The face index.
    * @return The halfedge index.
@@ -390,6 +397,12 @@ class Trimesh {
   auto BoundaryHalfedges() const;
 
   /**
+   * @brief Computes the median edge length of the triangular mesh.
+   * @return The median length of all edges in the mesh (or 0.0 if no edges).
+   */
+  double MedianEdgeLength() const;
+
+  /**
    * @brief Computes the axis-aligned bounding box (AABB) of the entire mesh.
    * @return A pair of Vector3d, where the first element is the minimum corner
    * of the bounding box and the second element is the maximum corner of the
@@ -432,9 +445,11 @@ class Trimesh {
   /**
    * @brief Collapses an edge and merges its vertices.
    * @param h The halfedge index.
+   * @param merging_point The position of the merging point
    * @return A pair of vectors containing the removed faces and vertices.
    */
-  std::pair<std::vector<F>, std::vector<V>> CollapseEdge(H h);
+  std::pair<std::vector<F>, std::vector<V>> CollapseEdge(
+      H h, const Vector3d& merging_point);
 
   /**
    * @brief Splits an edge and the incident faces.
@@ -694,6 +709,14 @@ bool Trimesh::VIsManifold(V v) const {
   }
   return ct1 == ct2;
 }
+bool Trimesh::VIsBoundary(V v) const {
+  for (H h : VStartings(v)) {
+    if (HOpposite(h) == kInvalidId) {
+      return true;
+    }
+  }
+  return false;
+}
 inline H Trimesh::FHalfedge(F f) const {
   assert(f < NumFaces());
   return 3 * f;
@@ -764,6 +787,17 @@ bool Trimesh::EdgeIsManifold(H h) const {
 inline auto Trimesh::BoundaryHalfedges() const {
   return std::views::filter(Halfedges(),
                             [this](H h) { return HOpposite(h) == kInvalidId; });
+}
+double Trimesh::MedianEdgeLength() const {
+  if (!NumHalfedges()) {
+    return 0.0;
+  }
+  std::vector<double> lengths(NumHalfedges());
+  for (H h : Halfedges()) {
+    lengths[h] = HLength(h);
+  }
+  std::sort(lengths.begin(), lengths.end());
+  return lengths[NumHalfedges() / 2];
 }
 std::pair<Vector3d, Vector3d> Trimesh::BoundingBox() const {
   if (position_.empty()) {
@@ -904,11 +938,11 @@ std::vector<V> Trimesh::RemoveFaces(std::vector<F> faces) {
   }
   return removed_vertices;
 }
-std::pair<std::vector<F>, std::vector<V>> Trimesh::CollapseEdge(H h) {
+std::pair<std::vector<F>, std::vector<V>> Trimesh::CollapseEdge(
+    H h, const Vector3d& merging_point) {
   std::vector<V> removed_vertices;
   std::vector<F> removed_faces = ToVector<F>(EdgeFaces(h));
   std::array<V, 2> verts = {HStart(h), HEnd(h)};
-  Vector3d midpoint = (VPosition(verts[0]) + VPosition(verts[1])) / 2.0;
   V last_vert_id = NumVertices() - 1;
   for (size_t i = 0; i < removed_faces.size(); i++) {
     std::vector<V> rm_verts = RemoveFace(removed_faces[i]);
@@ -937,7 +971,7 @@ std::pair<std::vector<F>, std::vector<V>> Trimesh::CollapseEdge(H h) {
     return std::make_pair(std::move(removed_faces),
                           std::move(removed_vertices));
   }
-  position_[verts[0]] = midpoint;
+  position_[verts[0]] = merging_point;
   std::vector<H> v_starts;
   for (V vert : verts) {
     if (vert != kInvalidId) {

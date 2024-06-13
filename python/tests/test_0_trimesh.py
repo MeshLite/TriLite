@@ -93,6 +93,8 @@ class TestTrimesh(unittest.TestCase):
         self.assertTrue(np.allclose(mesh.VNormal(0), [0, 0, 1]))
         self.assertEqual(mesh.VValence(0), 2)
         self.assertTrue(mesh.VIsManifold(0))
+        self.assertTrue(mesh.VIsBoundary(0))
+        self.assertAlmostEqual(mesh.MedianEdgeLength(), 1.0)
 
         # Face properties
         self.assertEqual(mesh.FHalfedge(0), 0)
@@ -142,7 +144,9 @@ class TestTrimesh(unittest.TestCase):
         )
 
         self.assertEqual(len(mesh.RemoveFace(0)), 1)
-        self.assertEqual(mesh.CollapseEdge(0), ([0], [1, 1, 1]))
+        self.assertEqual(
+            mesh.CollapseEdge(0, mesh.HCentroid(0)), ([0], [1, 1, 1])
+        )
         self.assertEqual(mesh.RemoveFace(0), [0, 1, 0])
         mesh.AddFace(
             [
@@ -154,7 +158,7 @@ class TestTrimesh(unittest.TestCase):
         mesh.AddFace([mesh.HEnd(0), mesh.HStart(0), np.array([1.0, 1.0, 1.0])])
         mesh.SplitEdge(0)
         self.assertEqual(mesh.NumFaces(), 4)
-        mesh.CollapseEdge(0)
+        mesh.CollapseEdge(0, mesh.HCentroid(0))
         self.assertEqual(mesh.NumFaces(), 2)
         mesh.FlipHalfedgeWithOpposite(0)
         self.assertEqual(mesh.HStart(0), 3)

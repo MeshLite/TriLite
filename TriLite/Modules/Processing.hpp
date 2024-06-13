@@ -33,18 +33,31 @@ namespace TL {
 class Processing {
  public:
   /**
-   * @brief External decimation function to simplify a triangular mesh.
+   * @brief External decimation function of a triangular mesh by edge length
+   * ordering.
    * @param mesh Reference to the Trimesh object to be simplified.
    * @param target_face_count The target number of faces after decimation.
    */
-  static void DecimateMesh(Trimesh& mesh, size_t target_face_count);
+  static void Decimate(Trimesh& mesh, size_t target_face_count);
+
+  /**
+   * @brief Simplifies a given triangular mesh by collapsing edges based on a
+   * quadric error metric. Only valid collapses are performed.
+   * @param mesh The triangular mesh to be simplified.
+   * @param max_collapse_cost_ratio A ratio used to determine the maximum
+   * allowed quadric error cost for collapsing an edge.
+   * @param preserve_boundaries Whether the collapse are prevented on the
+   * boundaries.
+   */
+  static void Simplify(Trimesh& mesh, double max_quadric_cost = 0.05,
+                       bool preserve_boundaries = false);
 
   /**
    * @brief Fills holes in a triangular mesh by detecting boundary edges and
    * adding triangles.
    * @param mesh The triangular mesh to be processed.
    */
-  static void FillMeshHoles(Trimesh& mesh, size_t target_hole_count = 0);
+  static void FillHoles(Trimesh& mesh, size_t target_hole_count = 0);
 
   /**
    * @brief Applies volume-preserving Laplacian smoothing (Taubin smoothing) to
@@ -154,7 +167,7 @@ class Processing {
       bool flag = true;
       for (H h : mesh.FHalfedges(f)) {
         if (mesh.HLength(h) < min_length) {
-          mesh.CollapseEdge(h);
+          mesh.CollapseEdge(h, mesh.HCentroid(h));
           flag = false;
           break;
         }
@@ -526,7 +539,7 @@ class Processing {
   };
 };
 
-void Processing::DecimateMesh(Trimesh& mesh, size_t target_face_count) {
+void Processing::Decimate(Trimesh& mesh, size_t target_face_count) {
   std::vector<double> edge_lengths(mesh.NumHalfedges());
   auto compare = [&edge_lengths](H h, H g) {
     return edge_lengths[h] < edge_lengths[g] ||
@@ -546,7 +559,8 @@ void Processing::DecimateMesh(Trimesh& mesh, size_t target_face_count) {
     }
     std::array<V, 2> verts = {mesh.HStart(minh), mesh.HEnd(minh)};
     V last_vert_id = mesh.NumVertices() - 1;
-    auto [rm_faces, rm_vertices] = mesh.CollapseEdge(minh);
+    auto [rm_faces, rm_vertices] =
+        mesh.CollapseEdge(minh, mesh.HCentroid(minh));
     for (const V& rem_v : rm_vertices) {
       for (V& v : verts) {
         if (v == rem_v) {
@@ -590,7 +604,103 @@ void Processing::DecimateMesh(Trimesh& mesh, size_t target_face_count) {
   }
 }
 
-void Processing::FillMeshHoles(Trimesh& mesh, size_t target_hole_count) {
+void Processing::Simplify(TL::Trimesh& mesh, double max_collapse_cost_ratio,
+                          bool preserve_boundaries) {
+  using Eigen::Matrix4d;
+  using Eigen::Vector4d;
+  double max_collapse_cost =
+      max_collapse_cost_ratio * std::pow(mesh.MedianEdgeLength(), 2);
+  auto compute_vertex_quadric = [](const TL::Trimesh& mesh, TL::V v) {
+    Matrix4d Q = Matrix4d::Zero();
+    for (TL::F f : mesh.VFaces(v)) {
+      Vector3d normal = mesh.FNormal(f);
+      Vector3d point_on_plane = mesh.FCentroid(f);
+      double d = -normal.dot(point_on_plane);  // Plane offset from origin
+      Vector4d plane;
+      plane << normal(0), normal(1), normal(2), d;
+      Q += plane * plane.transpose();
+    }
+    return Q;
+  };
+  auto collapse_cost = [&](TL::H h) {
+    TL::V v1 = mesh.HStart(h);
+    TL::V v2 = mesh.HEnd(h);
+    if (preserve_boundaries && (mesh.VIsBoundary(v1) || mesh.VIsBoundary(v2))) {
+      return std::make_pair(std::numeric_limits<double>::max(),
+                            Vector3d{0.0, 0.0, 0.0});
+    }
+    Matrix4d Q =
+        compute_vertex_quadric(mesh, v1) + compute_vertex_quadric(mesh, v2);
+    Matrix4d Q_bar = Q;
+    Q_bar(3, 0) = Q_bar(3, 1) = Q_bar(3, 2) = 0;
+    Q_bar(3, 3) = 1;
+
+    Vector4d v_bar;
+    if (Q_bar.determinant() != 0) {
+      v_bar = Q_bar.inverse() * Vector4d(0, 0, 0, 1);
+    } else {
+      Vector3d midpoint = (mesh.VPosition(v1) + mesh.VPosition(v2)) / 2.0;
+      v_bar << midpoint, 1.0;
+    }
+    if (mesh.VIsBoundary(v1) || mesh.VIsBoundary(v2)) {
+      v_bar << (mesh.VIsBoundary(v1) ? mesh.VIsBoundary(v2) ? mesh.HCentroid(h)
+                                                            : mesh.VPosition(v1)
+                                     : mesh.VPosition(v2)),
+          1.0;
+    }
+    double cost = v_bar.transpose() * Q * v_bar;
+    return std::make_pair(cost, Vector3d{v_bar[0], v_bar[1], v_bar[2]});
+  };
+  auto is_valid_collapse = [&](TL::H h, const Vector3d& p) -> bool {
+    TL::V v1 = mesh.HStart(h);
+    TL::V v2 = mesh.HEnd(h);
+    for (int i = 0; i < 2; ++i) {
+      std::swap(v1, v2);
+      for (TL::F f : mesh.VFaces(v1)) {
+        std::vector<Vector3d> triangle;
+        for (TL::V v : mesh.FVertices(f)) {
+          if (v == v2) {
+            break;
+          }
+          if (v == v1) {
+            triangle.push_back(p);
+          } else {
+            triangle.push_back(mesh.VPosition(v));
+          }
+        }
+        if (triangle.size() == 3) {
+          Vector3d n =
+              (triangle[1] - triangle[0]).cross(triangle[2] - triangle[0]);
+          if (n.dot(mesh.FNormal(f)) <= 0.0 ||
+              n.norm() < 1e-2 * mesh.FArea(f)) {
+            return false;
+          }
+        }
+      }
+    }
+    return true;
+  };
+  for (TL::F st_f = 0; st_f < mesh.NumFaces(); st_f++) {
+    std::vector<TL::F> vf{st_f};
+    while (!vf.empty() && mesh.NumFaces()) {
+      TL::F f = vf.back();
+      vf.pop_back();
+      if (f <= std::min(st_f, mesh.NumFaces() - 1)) {
+        for (TL::H h : mesh.FHalfedges(f)) {
+          auto [cost, midpoint] = collapse_cost(h);
+          if (cost < max_collapse_cost && is_valid_collapse(h, midpoint)) {
+            auto [deleted_faces, deleted_verts] =
+                mesh.CollapseEdge(h, midpoint);
+            vf.insert(vf.end(), deleted_faces.begin(), deleted_faces.end());
+            break;
+          }
+        }
+      }
+    }
+  }
+}
+
+void Processing::FillHoles(Trimesh& mesh, size_t target_hole_count) {
   std::unordered_set<H> boundary_edges;
   std::vector<std::vector<H>> polygons;
   for (H st_h : mesh.BoundaryHalfedges()) {
@@ -735,7 +845,7 @@ void Processing::PrintabilityHeuristics(Trimesh& mesh, int niters) {
     Processing::RemoveSelfIntersections(mesh);
     mesh.DisconnectFacesUntilManifold();
     RetainLargestComponent(mesh);
-    Processing::FillMeshHoles(mesh, 0);
+    Processing::FillHoles(mesh, 0);
     mesh.DisconnectFacesUntilManifold();
     RetainLargestComponent(mesh);
     MakeDelaunay(mesh);

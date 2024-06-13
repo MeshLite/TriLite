@@ -65,10 +65,10 @@ int main() {
   // Copying the mesh
   TL::Trimesh mesh2(mesh1);
 
-  // Decimating the copied mesh
-  TL::Processing::DecimateMesh(mesh2, mesh2.NumFaces() / 4);
+  // Simplify the copied mesh
+  TL::Processing::Simplify(mesh2);
 
-  // Writing the decimated mesh back to a file
+  // Writing the simplified mesh back to a file
   TL::IO::WriteMeshFile(mesh2, "output.stl");
 
   // Calculating Hausdorff distance between the meshes
@@ -90,10 +90,10 @@ mesh1 = TL.IO.ReadMeshFile("input.obj")
 # Copying the mesh
 mesh2 = TL.Trimesh(mesh1)
 
-# Decimating the copied mesh
-TL.Processing.DecimateMesh(mesh2, mesh2.NumFaces() // 4)
+# Simplify the copied mesh
+TL.Processing.Simplify(mesh2)
 
-# Writing the decimated mesh back to a file
+# Writing the simplified mesh back to a file
 TL.IO.WriteMeshFile(mesh2, "output.stl")
 
 # Calculating Hausdorff distance between the meshes

@@ -87,6 +87,7 @@ PYBIND11_MODULE(trilite, m) {
       .def("VNormal", &Trimesh::VNormal)
       .def("VValence", &Trimesh::VValence)
       .def("VIsManifold", &Trimesh::VIsManifold)
+      .def("VIsBoundary", &Trimesh::VIsBoundary)
       .def("FHalfedge", &Trimesh::FHalfedge)
       .def("FHalfedges", [](const Trimesh& trimesh,
                             F f) { return ToVector<H>(trimesh.FHalfedges(f)); })
@@ -113,6 +114,7 @@ PYBIND11_MODULE(trilite, m) {
            [](const Trimesh& trimesh) {
              return ToVector<H>(trimesh.BoundaryHalfedges());
            })
+      .def("MedianEdgeLength", &Trimesh::MedianEdgeLength)
       .def("BoundingBox", &Trimesh::BoundingBox)
       .def("Centroid", &Trimesh::Centroid)
       .def("AddFace", &Trimesh::AddFace)
@@ -140,10 +142,17 @@ PYBIND11_MODULE(trilite, m) {
                   py::arg("filepath"), py::arg("binary_mode") = true);
 
   py::class_<Processing>(m, "Processing")
-      .def_static("DecimateMesh", &Processing::DecimateMesh,
-                  "A function to simplify a triangular mesh", py::arg("mesh"),
-                  py::arg("target_face_count"))
-      .def_static("FillMeshHoles", &Processing::FillMeshHoles,
+      .def_static("Decimate", &Processing::Decimate,
+                  "External decimation function of a triangular mesh by edge "
+                  "length ordering.",
+                  py::arg(" mesh "), py::arg("target_face_count"))
+      .def_static(
+          "Simplify", &Processing::Simplify,
+          "Simplifies a given triangular mesh by collapsing edges based on a "
+          "quadric error metric. Only valid collapses are performed.",
+          py::arg(" mesh "), py::arg("max_collapse_cost_ratio") = 0.05,
+          py::arg("preserve_boundaries") = false)
+      .def_static("FillHoles", &Processing::FillHoles,
                   "A function to remove holes from triangular mesh",
                   py::arg("mesh"), py::arg("target_hole_count") = 0)
       .def_static("TaubinSmoothing", &Processing::TaubinSmoothing,
