@@ -31,7 +31,7 @@
 namespace TL {
 // use Generator class from
 // https://en.cppreference.com/w/cpp/coroutine/coroutine_handle while waiting
-// for std::generator of c++23
+// for std::generator of C++23
 template <std::movable T>
 class Generator {
  public:

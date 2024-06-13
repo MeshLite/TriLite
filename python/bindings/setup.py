@@ -44,7 +44,7 @@ ext_modules = [
 
 setup(
     name="trilite",
-    version="0.3.2",
+    version="0.4.1",
     author="MeshLite",
     author_email="meshlite.developers@gmail.com",
     description="Python binding for the TriLite library",

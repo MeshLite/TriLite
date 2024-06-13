@@ -45,7 +45,7 @@ class TestMeshProcessing(unittest.TestCase):
                 filepath = os.path.join(self.__class__.dataset_dir, filename)
                 mesh = TL.IO.ReadMeshFile(filepath)
                 target_face_count = mesh.NumFaces() // 2
-                TL.Processing.DecimateMesh(mesh, target_face_count)
+                TL.Processing.Decimate(mesh, target_face_count)
                 self.assertLessEqual(
                     mesh.NumFaces(),
                     target_face_count,
@@ -63,7 +63,7 @@ class TestMeshProcessing(unittest.TestCase):
                 for v in range(mesh.NumVertices()):
                     self.assertTrue(mesh.VIsManifold(v))
 
-                TL.Processing.FillMeshHoles(mesh, 0)
+                TL.Processing.FillHoles(mesh, 0)
 
                 for h in range(mesh.NumHalfedges()):
                     self.assertTrue(mesh.HOpposite(h) < mesh.NumHalfedges())
@@ -81,6 +81,14 @@ class TestMeshProcessing(unittest.TestCase):
                 filepath = os.path.join(self.__class__.dataset_dir, filename)
                 mesh = TL.IO.ReadMeshFile(filepath)
                 TL.Processing.RemoveSelfIntersections(mesh)
+
+    def test_simplification(self):
+        for filename in os.listdir(self.__class__.dataset_dir):
+            with self.subTest(filename=filename):
+                filepath = os.path.join(self.__class__.dataset_dir, filename)
+                mesh = TL.IO.ReadMeshFile(filepath)
+                TL.Processing.Simplify(mesh, 0.05, True)
+                TL.Processing.Simplify(mesh)
 
     def test_taubin_smoothing(self):
         for filename in os.listdir(self.__class__.dataset_dir):
