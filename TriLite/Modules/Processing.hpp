@@ -83,7 +83,7 @@ class Processing {
    * @param mesh Reference to the Trimesh object to be prepared.
    * @param niters The number of iterations to perform (default is 10).
    */
-  static void PrintabilityHeuristics(Trimesh& mesh, int niters = 10);
+  static void MakeWatertight(Trimesh& mesh, int niters = 10);
 
  private:
   static void ClampEdgeLengths(Trimesh& mesh, double min_length,
@@ -824,7 +824,7 @@ void Processing::RemoveSelfIntersections(Trimesh& mesh) {
   mesh.RemoveFaces(rm_faces);
 }
 
-void Processing::PrintabilityHeuristics(Trimesh& mesh, int niters) {
+void Processing::MakeWatertight(Trimesh& mesh, int niters) {
   if (mesh.NumFaces() == 0) {
     return;
   }

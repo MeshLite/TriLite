@@ -26,81 +26,78 @@ import os
 import sys
 
 if len(sys.argv) < 2:
-    print("Usage: python test_trimesh_functions.py /path/to/your/dataset")
+    print("Usage: python test_registration.py /path/to/your/dataset")
     sys.exit(1)
 
 dataset_dir = sys.argv[1]
 
 
-class TestMeshProcessing(unittest.TestCase):
+class TestMeshRegistration(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
         cls.dataset_dir = dataset_dir
         cls.files = os.listdir(cls.dataset_dir)
 
-    def test_decimation(self):
+    def test_find_closest_points(self):
         for filename in os.listdir(self.__class__.dataset_dir):
             with self.subTest(filename=filename):
                 filepath = os.path.join(self.__class__.dataset_dir, filename)
                 mesh = TL.IO.ReadMeshFile(filepath)
                 TL.Processing.Simplify(mesh, 0.05, True)
-                target_face_count = mesh.NumFaces() // 2
-                TL.Processing.Decimate(mesh, target_face_count)
-                self.assertLessEqual(
-                    mesh.NumFaces(),
-                    target_face_count,
-                    "Mesh faces should be decimated",
+                indices, distances = TL.Registration.FindClosestPoints(
+                    mesh, mesh
                 )
 
-    def test_hole_filling(self):
+    def test_find_best_rotation(self):
         for filename in os.listdir(self.__class__.dataset_dir):
             with self.subTest(filename=filename):
                 filepath = os.path.join(self.__class__.dataset_dir, filename)
                 mesh = TL.IO.ReadMeshFile(filepath)
                 TL.Processing.Simplify(mesh, 0.05, True)
-                mesh.DisconnectFacesUntilManifold()
-                for h in range(mesh.NumHalfedges()):
-                    self.assertTrue(mesh.EdgeIsManifold(h))
-                for v in range(mesh.NumVertices()):
-                    self.assertTrue(mesh.VIsManifold(v))
+                rotation_matrix = TL.Registration.FindBestRotation(mesh, mesh)
 
-                TL.Processing.FillHoles(mesh, 0)
-
-                for h in range(mesh.NumHalfedges()):
-                    self.assertTrue(mesh.HOpposite(h) < mesh.NumHalfedges())
-
-    def test_make_watertight(self):
+    def test_find_best_rigid_transformation(self):
         for filename in os.listdir(self.__class__.dataset_dir):
             with self.subTest(filename=filename):
                 filepath = os.path.join(self.__class__.dataset_dir, filename)
                 mesh = TL.IO.ReadMeshFile(filepath)
                 TL.Processing.Simplify(mesh, 0.05, True)
-                TL.Processing.MakeWatertight(mesh, 1)
+                rotation_matrix, translation_vector = (
+                    TL.Registration.FindBestRigidTransformation(mesh, mesh)
+                )
 
-    def test_self_intersect(self):
+    def test_find_best_similarity_transformation(self):
         for filename in os.listdir(self.__class__.dataset_dir):
             with self.subTest(filename=filename):
                 filepath = os.path.join(self.__class__.dataset_dir, filename)
                 mesh = TL.IO.ReadMeshFile(filepath)
                 TL.Processing.Simplify(mesh, 0.05, True)
-                TL.Processing.RemoveSelfIntersections(mesh)
+                rotation_matrix, translation_vector, scaling_factor = (
+                    TL.Registration.FindBestSimilarityTransformation(
+                        mesh, mesh
+                    )
+                )
 
-    def test_simplification(self):
+    def test_icp(self):
         for filename in os.listdir(self.__class__.dataset_dir):
             with self.subTest(filename=filename):
                 filepath = os.path.join(self.__class__.dataset_dir, filename)
                 mesh = TL.IO.ReadMeshFile(filepath)
                 TL.Processing.Simplify(mesh, 0.05, True)
-                TL.Processing.Simplify(mesh)
+                rotation_matrix, translation_vector = TL.Registration.ICP(
+                    mesh, mesh
+                )
 
-    def test_taubin_smoothing(self):
+    def test_find_best_rigid_registration(self):
         for filename in os.listdir(self.__class__.dataset_dir):
             with self.subTest(filename=filename):
                 filepath = os.path.join(self.__class__.dataset_dir, filename)
                 mesh = TL.IO.ReadMeshFile(filepath)
                 TL.Processing.Simplify(mesh, 0.05, True)
-                TL.Processing.TaubinSmoothing(mesh, 1)
+                rotation_matrix, translation_vector = (
+                    TL.Registration.RigidRegistrationHeuristics(mesh, mesh)
+                )
 
 
 if __name__ == "__main__":

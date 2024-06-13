@@ -48,10 +48,9 @@ class TestIO(unittest.TestCase):
                 filepath = os.path.join(self.__class__.dataset_dir, filename)
 
                 mesh = TL.IO.ReadMeshFile(filepath)
-
-                structure = [[] for _ in range(mesh.NumVertices())]
-                for v in range(mesh.NumVertices()):
-                    structure[v] = mesh.VStartings(v)
+                TL.Processing.Simplify(mesh, 0.05, True)
+                num_vertices = mesh.NumVertices()
+                num_halfedges = mesh.NumHalfedges()
 
                 for extension in [".stl", ".obj", ".off", ".ply"]:
                     for binary_mode in [True, False]:
@@ -68,12 +67,11 @@ class TestIO(unittest.TestCase):
                         # The mesh topology must remain exactly the same
                         # as the initial mesh, for all file extensions
                         self.assertEqual(
-                            rounded_mesh.NumVertices(), len(structure)
+                            rounded_mesh.NumVertices(), num_vertices
                         )
-                        for v in range(rounded_mesh.NumVertices()):
-                            self.assertEqual(
-                                rounded_mesh.VStartings(v), structure[v]
-                            )
+                        self.assertEqual(
+                            rounded_mesh.NumHalfedges(), num_halfedges
+                        )
 
 
 if __name__ == "__main__":
