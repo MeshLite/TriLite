@@ -28,6 +28,7 @@
 #include "../../TriLite/Modules/Distance.hpp"
 #include "../../TriLite/Modules/IO.hpp"
 #include "../../TriLite/Modules/Processing.hpp"
+#include "../../TriLite/Modules/Registration.hpp"
 
 namespace py = pybind11;
 using namespace TL;
@@ -117,6 +118,12 @@ PYBIND11_MODULE(trilite, m) {
       .def("MedianEdgeLength", &Trimesh::MedianEdgeLength)
       .def("BoundingBox", &Trimesh::BoundingBox)
       .def("Centroid", &Trimesh::Centroid)
+      .def("ApplyRotation", &Trimesh::ApplyRotation)
+      .def("ApplyTranslation", &Trimesh::ApplyTranslation)
+      .def("ApplyScaling", &Trimesh::ApplyScaling)
+      .def("ApplyRigidTransformation", &Trimesh::ApplyRigidTransformation)
+      .def("ApplySimilarityTransformation",
+           &Trimesh::ApplySimilarityTransformation)
       .def("AddFace", &Trimesh::AddFace)
       .def("RemoveFace", &Trimesh::RemoveFace)
       .def("CollapseEdge", &Trimesh::CollapseEdge)
@@ -149,9 +156,11 @@ PYBIND11_MODULE(trilite, m) {
       .def_static(
           "Simplify", &Processing::Simplify,
           "Simplifies a given triangular mesh by collapsing edges based on a "
-          "quadric error metric. Only valid collapses are performed.",
+          "quadric error metric. Only valid collapses are performed by "
+          "default.",
           py::arg(" mesh "), py::arg("max_collapse_cost_ratio") = 0.05,
-          py::arg("preserve_boundaries") = false)
+          py::arg("preserve_boundaries") = false,
+          py::arg("prevent_invalid_collapse") = true)
       .def_static("FillHoles", &Processing::FillHoles,
                   "A function to remove holes from triangular mesh",
                   py::arg("mesh"), py::arg("target_hole_count") = 0)
@@ -163,7 +172,7 @@ PYBIND11_MODULE(trilite, m) {
           "RemoveSelfIntersections", &Processing::RemoveSelfIntersections,
           "A function to remove self-intersections in a triangular mesh",
           py::arg("mesh"))
-      .def_static("PrintabilityHeuristics", &Processing::PrintabilityHeuristics,
+      .def_static("MakeWatertight", &Processing::MakeWatertight,
                   "Prepares a triangular mesh for 3D printing by iteratively "
                   "closing it while applying several cleaning and repair steps "
                   "(only the largest connected component is preserved)",
@@ -194,4 +203,60 @@ PYBIND11_MODULE(trilite, m) {
       .def("ClosestPoint", &Distance::Tree::ClosestPoint,
            "Find the closest point on the mesh to a given point",
            py::arg("point"));
+  py::class_<Registration>(m, "Registration")
+      .def_static(
+          "FindClosestPoints",
+          [](const Trimesh& source, const Trimesh& target) {
+            return Registration::FindClosestPoints(source, target);
+          },
+          py::arg("source"), py::arg("target"),
+          "Finds the closest points in the target mesh for each point in the "
+          "source mesh.")
+      .def_static(
+          "FindBestRotation",
+          [](const Trimesh& source, const Trimesh& target,
+             bool already_centered) {
+            return Registration::FindBestRotation(source, target,
+                                                  already_centered);
+          },
+          py::arg("source"), py::arg("target"),
+          py::arg("already_centered") = false,
+          "Applies the Kabsch algorithm to find the best rotation matrix "
+          "between source and target points.")
+      .def_static(
+          "FindBestRigidTransformation",
+          [](const Trimesh& source, const Trimesh& target) {
+            return Registration::FindBestRigidTransformation(source, target);
+          },
+          py::arg("source"), py::arg("target"),
+          "Finds the best rigid transformation (rotation and translation) "
+          "between source and target meshes.")
+      .def_static(
+          "FindBestSimilarityTransformation",
+          [](const Trimesh& source, const Trimesh& target) {
+            return Registration::FindBestSimilarityTransformation(source,
+                                                                  target);
+          },
+          py::arg("source"), py::arg("target"),
+          "Finds the best similarity transformation (rotation, translation, "
+          "and scaling) between source and target meshes.")
+      .def_static(
+          "ICP",
+          [](const Trimesh& source, const Trimesh& target, int max_iterations,
+             double tolerance) {
+            return Registration::ICP(source, target, max_iterations, tolerance);
+          },
+          py::arg("source"), py::arg("target"),
+          py::arg("max_iterations") = 1000, py::arg("tolerance") = 1e-6,
+          "Applies the Iterative Closest Point (ICP) algorithm to find the "
+          "best alignment between source and target meshes.")
+      .def_static(
+          "RigidRegistrationHeuristics",
+          [](const Trimesh& source, const Trimesh& target) {
+            return Registration::RigidRegistrationHeuristics(source, target);
+          },
+          py::arg("source"), py::arg("target"),
+          "Applies the ICP algorithm to find the best alignment between source "
+          "and target meshes with different preprocessing on the source mesh "
+          "to select the best result.");
 }

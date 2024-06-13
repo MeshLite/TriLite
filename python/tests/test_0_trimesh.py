@@ -40,22 +40,24 @@ class TestTrimesh(unittest.TestCase):
         cls.mesh.AddFace([v0, v1, v2])
         cls.mesh.AddFace([2, v3, 0])
 
-    def test_trimesh_functions(self):
+    def test_basic_properties(self):
         mesh = self.__class__.mesh
-        # Basic properties
         self.assertEqual(mesh.NumHalfedges(), 6)
         self.assertEqual(mesh.NumVertices(), 4)
         self.assertEqual(mesh.NumFaces(), 2)
 
-        # Halfedges, Vertices, Faces
+    def test_halfedges_vertices_faces(self):
+        mesh = self.__class__.mesh
         self.assertEqual(len(mesh.Halfedges()), 6)
         self.assertEqual(len(mesh.Vertices()), 4)
         self.assertEqual(len(mesh.Faces()), 2)
 
-        # Positions
+    def test_positions(self):
+        mesh = self.__class__.mesh
         self.assertEqual(len(mesh.Positions()), 4)
 
-        # Halfedge navigation
+    def test_halfedge_navigation(self):
+        mesh = self.__class__.mesh
         self.assertEqual(mesh.HNext(0), 1)
         self.assertEqual(mesh.HPrev(1), 0)
         self.assertEqual(mesh.HStart(3), 2)
@@ -67,21 +69,20 @@ class TestTrimesh(unittest.TestCase):
         self.assertEqual(mesh.HNextAroundEnd(2), 4)
         self.assertEqual(mesh.HPrevAroundEnd(4), 2)
 
-        # Geometric properties
+    def test_geometric_properties(self):
+        mesh = self.__class__.mesh
         self.assertTrue(
             np.array_equal(mesh.HGeometry(0), np.array([1.0, 0.0, 0.0]))
         )
         self.assertTrue(
             np.array_equal(mesh.HCentroid(1), np.array([1.0, 0.5, 0.0]))
         )
-
         self.assertEqual(len(mesh.HConnectionsAroundStart(0)), 2)
-
         self.assertEqual(len(mesh.HHalfedgesAroundHole(3)), 4)
         self.assertAlmostEqual(mesh.HLength(0), 1.0)
 
-        # Vertex properties
-
+    def test_vertex_properties(self):
+        mesh = self.__class__.mesh
         self.assertEqual(mesh.VStarting(0), 5)
         self.assertEqual(mesh.VEnding(0), 4)
         self.assertEqual(len(mesh.VStartings(0)), 2)
@@ -96,7 +97,8 @@ class TestTrimesh(unittest.TestCase):
         self.assertTrue(mesh.VIsBoundary(0))
         self.assertAlmostEqual(mesh.MedianEdgeLength(), 1.0)
 
-        # Face properties
+    def test_face_properties(self):
+        mesh = self.__class__.mesh
         self.assertEqual(mesh.FHalfedge(0), 0)
         self.assertEqual(len(mesh.FHalfedges(0)), 3)
         self.assertEqual(mesh.FNeighbors(0), [1])
@@ -105,15 +107,18 @@ class TestTrimesh(unittest.TestCase):
         self.assertTrue(np.allclose(mesh.FNormal(0), [0, 0, 1]))
         self.assertAlmostEqual(mesh.FArea(0), 0.5)
 
-        # Edge properties
+    def test_edge_properties(self):
+        mesh = self.__class__.mesh
         self.assertEqual(len(mesh.EdgeHalfedges(0)), 1)
         self.assertEqual(len(mesh.EdgeFaces(0)), 1)
         self.assertTrue(mesh.EdgeIsManifold(0))
 
-        # Boundary halfedges
+    def test_boundary_halfedges(self):
+        mesh = self.__class__.mesh
         self.assertGreaterEqual(len(mesh.BoundaryHalfedges()), 0)
 
-        # Centroid
+    def test_centroid(self):
+        mesh = self.__class__.mesh
         f_centroid_0 = mesh.FCentroid(0)
         expected_f_centroid_0 = np.array([2 / 3, 1 / 3, 0.0])
         self.assertTrue(np.allclose(f_centroid_0, expected_f_centroid_0))
@@ -121,7 +126,8 @@ class TestTrimesh(unittest.TestCase):
         expected_centroid = np.array([0.5, 0.5, 0.0])
         self.assertTrue(np.allclose(centroid, expected_centroid))
 
-        # Bounding box
+    def test_bounding_box(self):
+        mesh = self.__class__.mesh
         f_bbox_0 = mesh.FBoundingBox(0)
         expected_f_bbox_0 = (
             np.array([0.0, 0.0, 0.0]),
@@ -134,7 +140,8 @@ class TestTrimesh(unittest.TestCase):
         self.assertTrue(np.allclose(bbox[0], expected_bbox[0]))
         self.assertTrue(np.allclose(bbox[1], expected_bbox[1]))
 
-        # Modify mesh
+    def test_modify_mesh(self):
+        mesh = TL.Trimesh(self.__class__.mesh)
         mesh.AddFace(
             [
                 np.array([0.0, 1.0, 0.0]),
@@ -142,7 +149,6 @@ class TestTrimesh(unittest.TestCase):
                 np.array([1.0, 1.0, 0.0]),
             ]
         )
-
         self.assertEqual(len(mesh.RemoveFace(0)), 1)
         self.assertEqual(
             mesh.CollapseEdge(0, mesh.HCentroid(0)), ([0], [1, 1, 1])
@@ -189,6 +195,72 @@ class TestTrimesh(unittest.TestCase):
         self.assertEqual(mesh.NumVertices(), 0)
         self.assertEqual(mesh.NumFaces(), 0)
         self.assertEqual(mesh.NumHalfedges(), 0)
+
+        v0 = np.array([0.0, 0.0, 0.0])
+        v1 = np.array([1.0, 0.0, 0.0])
+        v2 = np.array([1.0, 1.0, 0.0])
+        v3 = np.array([0.0, 1.0, 0.0])
+
+        mesh.AddFace([v0, v1, v2])
+        mesh.AddFace([2, v3, 0])
+
+    def test_transformations(self):
+        mesh = TL.Trimesh(self.__class__.mesh)
+        copy = TL.Trimesh(mesh)
+        rotation_matrix = np.array(
+            [[0.0, -1.0, 0.0], [1.0, 0.0, 0.0], [0.0, 0.0, 1.0]]
+        )
+        mesh.ApplyRotation(rotation_matrix)
+        for v in range(mesh.NumVertices()):
+            pos = mesh.VPosition(v)
+            self.assertTrue(
+                np.allclose(pos, rotation_matrix @ copy.VPosition(v))
+            )
+
+        copy = TL.Trimesh(mesh)
+        translation_vector = np.array([1.0, 1.0, 1.0])
+        mesh.ApplyTranslation(translation_vector)
+        for v in range(mesh.NumVertices()):
+            pos = mesh.VPosition(v)
+            self.assertTrue(
+                np.allclose(pos, copy.VPosition(v) + translation_vector)
+            )
+
+        copy = TL.Trimesh(mesh)
+        scaling_factor = 2.0
+        mesh.ApplyScaling(scaling_factor)
+        for v in range(mesh.NumVertices()):
+            pos = mesh.VPosition(v)
+            self.assertTrue(np.allclose(pos, 2 * copy.VPosition(v)))
+
+        copy = TL.Trimesh(mesh)
+        mesh.ApplyRigidTransformation(rotation_matrix, translation_vector)
+        for v in range(mesh.NumVertices()):
+            pos = mesh.VPosition(v)
+            self.assertTrue(
+                np.allclose(
+                    pos,
+                    (rotation_matrix @ copy.VPosition(v)) + translation_vector,
+                )
+            )
+
+        # Apply and test similarity transformation (rotation + scaling + translation)
+        copy = TL.Trimesh(mesh)
+        rotation_matrix = np.eye(3)
+        translation_vector = np.array([1.0, 1.0, 1.0])
+        scaling_factor = 2.0
+        mesh.ApplySimilarityTransformation(
+            rotation_matrix, translation_vector, scaling_factor
+        )
+        for v in range(mesh.NumVertices()):
+            pos = mesh.VPosition(v)
+            self.assertTrue(
+                np.allclose(
+                    pos,
+                    scaling_factor * (rotation_matrix @ copy.VPosition(v))
+                    + translation_vector,
+                )
+            )
 
 
 if __name__ == "__main__":

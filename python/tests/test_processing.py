@@ -44,6 +44,7 @@ class TestMeshProcessing(unittest.TestCase):
             with self.subTest(filename=filename):
                 filepath = os.path.join(self.__class__.dataset_dir, filename)
                 mesh = TL.IO.ReadMeshFile(filepath)
+                TL.Processing.Simplify(mesh, 0.01, False, False)
                 target_face_count = mesh.NumFaces() // 2
                 TL.Processing.Decimate(mesh, target_face_count)
                 self.assertLessEqual(
@@ -57,6 +58,7 @@ class TestMeshProcessing(unittest.TestCase):
             with self.subTest(filename=filename):
                 filepath = os.path.join(self.__class__.dataset_dir, filename)
                 mesh = TL.IO.ReadMeshFile(filepath)
+                TL.Processing.Simplify(mesh, 0.01, False, False)
                 mesh.DisconnectFacesUntilManifold()
                 for h in range(mesh.NumHalfedges()):
                     self.assertTrue(mesh.EdgeIsManifold(h))
@@ -68,18 +70,20 @@ class TestMeshProcessing(unittest.TestCase):
                 for h in range(mesh.NumHalfedges()):
                     self.assertTrue(mesh.HOpposite(h) < mesh.NumHalfedges())
 
-    def test_printability_heuristics(self):
+    def test_make_watertight(self):
         for filename in os.listdir(self.__class__.dataset_dir):
             with self.subTest(filename=filename):
                 filepath = os.path.join(self.__class__.dataset_dir, filename)
                 mesh = TL.IO.ReadMeshFile(filepath)
-                TL.Processing.PrintabilityHeuristics(mesh, 1)
+                TL.Processing.Simplify(mesh, 0.01, False, False)
+                TL.Processing.MakeWatertight(mesh, 1)
 
     def test_self_intersect(self):
         for filename in os.listdir(self.__class__.dataset_dir):
             with self.subTest(filename=filename):
                 filepath = os.path.join(self.__class__.dataset_dir, filename)
                 mesh = TL.IO.ReadMeshFile(filepath)
+                TL.Processing.Simplify(mesh, 0.01, False, False)
                 TL.Processing.RemoveSelfIntersections(mesh)
 
     def test_simplification(self):
@@ -87,7 +91,7 @@ class TestMeshProcessing(unittest.TestCase):
             with self.subTest(filename=filename):
                 filepath = os.path.join(self.__class__.dataset_dir, filename)
                 mesh = TL.IO.ReadMeshFile(filepath)
-                TL.Processing.Simplify(mesh, 0.05, True)
+                TL.Processing.Simplify(mesh, 0.01, False, False)
                 TL.Processing.Simplify(mesh)
 
     def test_taubin_smoothing(self):
@@ -95,6 +99,7 @@ class TestMeshProcessing(unittest.TestCase):
             with self.subTest(filename=filename):
                 filepath = os.path.join(self.__class__.dataset_dir, filename)
                 mesh = TL.IO.ReadMeshFile(filepath)
+                TL.Processing.Simplify(mesh, 0.01, False, False)
                 TL.Processing.TaubinSmoothing(mesh, 1)
 
 

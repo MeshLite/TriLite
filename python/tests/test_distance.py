@@ -85,6 +85,7 @@ class TestDistance(unittest.TestCase):
             with self.subTest(filename=filename):
                 filepath = os.path.join(self.__class__.dataset_dir, filename)
                 mesh = TL.IO.ReadMeshFile(filepath)
+                TL.Processing.Simplify(mesh, 0.01, False, False)
                 if ref_mesh == None:
                     ref_mesh = mesh
                 max_length = 0

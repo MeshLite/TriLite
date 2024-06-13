@@ -42,15 +42,18 @@ class Processing {
 
   /**
    * @brief Simplifies a given triangular mesh by collapsing edges based on a
-   * quadric error metric. Only valid collapses are performed.
+   * quadric error metric. Only valid collapses are performed by default.
    * @param mesh The triangular mesh to be simplified.
-   * @param max_collapse_cost_ratio A ratio used to determine the maximum
-   * allowed quadric error cost for collapsing an edge.
+   * @param simplification_ratio The ratio between the number of faces after vs
+   * before the mesh simplification (expected between 0 and 1).
    * @param preserve_boundaries Whether the collapse are prevented on the
    * boundaries.
+   * @param prevent_invalid_collapse Whether a collapse is prevented if it leads
+   * to an invalid triangle mesh.
    */
-  static void Simplify(Trimesh& mesh, double max_quadric_cost = 0.05,
-                       bool preserve_boundaries = false);
+  static void Simplify(Trimesh& mesh, double simplification_ratio = 0.1,
+                       bool preserve_boundaries = false,
+                       bool prevent_invalid_collapse = true);
 
   /**
    * @brief Fills holes in a triangular mesh by detecting boundary edges and
@@ -83,7 +86,7 @@ class Processing {
    * @param mesh Reference to the Trimesh object to be prepared.
    * @param niters The number of iterations to perform (default is 10).
    */
-  static void PrintabilityHeuristics(Trimesh& mesh, int niters = 10);
+  static void MakeWatertight(Trimesh& mesh, int niters = 10);
 
  private:
   static void ClampEdgeLengths(Trimesh& mesh, double min_length,
@@ -604,12 +607,13 @@ void Processing::Decimate(Trimesh& mesh, size_t target_face_count) {
   }
 }
 
-void Processing::Simplify(TL::Trimesh& mesh, double max_collapse_cost_ratio,
-                          bool preserve_boundaries) {
+void Processing::Simplify(TL::Trimesh& mesh, double simplification_ratio,
+                          bool preserve_boundaries,
+                          bool prevent_invalid_collapse) {
   using Eigen::Matrix4d;
   using Eigen::Vector4d;
-  double max_collapse_cost =
-      max_collapse_cost_ratio * std::pow(mesh.MedianEdgeLength(), 2);
+  // double max_collapse_cost =
+  //     max_collapse_cost_ratio * std::pow(mesh.MedianEdgeLength(), 2);
   auto compute_vertex_quadric = [](const TL::Trimesh& mesh, TL::V v) {
     Matrix4d Q = Matrix4d::Zero();
     for (TL::F f : mesh.VFaces(v)) {
@@ -625,6 +629,9 @@ void Processing::Simplify(TL::Trimesh& mesh, double max_collapse_cost_ratio,
   auto collapse_cost = [&](TL::H h) {
     TL::V v1 = mesh.HStart(h);
     TL::V v2 = mesh.HEnd(h);
+    if (std::max(mesh.VValence(v1), mesh.VValence(v2)) > 20) {
+      return std::make_pair(0.0, mesh.HCentroid(h));
+    }
     if (preserve_boundaries && (mesh.VIsBoundary(v1) || mesh.VIsBoundary(v2))) {
       return std::make_pair(std::numeric_limits<double>::max(),
                             Vector3d{0.0, 0.0, 0.0});
@@ -636,7 +643,7 @@ void Processing::Simplify(TL::Trimesh& mesh, double max_collapse_cost_ratio,
     Q_bar(3, 3) = 1;
 
     Vector4d v_bar;
-    if (Q_bar.determinant() != 0) {
+    if (Q_bar.determinant() > 1e-5) {
       v_bar = Q_bar.inverse() * Vector4d(0, 0, 0, 1);
     } else {
       Vector3d midpoint = (mesh.VPosition(v1) + mesh.VPosition(v2)) / 2.0;
@@ -652,13 +659,16 @@ void Processing::Simplify(TL::Trimesh& mesh, double max_collapse_cost_ratio,
     return std::make_pair(cost, Vector3d{v_bar[0], v_bar[1], v_bar[2]});
   };
   auto is_valid_collapse = [&](TL::H h, const Vector3d& p) -> bool {
-    TL::V v1 = mesh.HStart(h);
-    TL::V v2 = mesh.HEnd(h);
+    if (!prevent_invalid_collapse) {
+      return true;
+    }
+    V v1 = mesh.HStart(h);
+    V v2 = mesh.HEnd(h);
     for (int i = 0; i < 2; ++i) {
       std::swap(v1, v2);
-      for (TL::F f : mesh.VFaces(v1)) {
+      for (F f : mesh.VFaces(v1)) {
         std::vector<Vector3d> triangle;
-        for (TL::V v : mesh.FVertices(f)) {
+        for (V v : mesh.FVertices(f)) {
           if (v == v2) {
             break;
           }
@@ -680,19 +690,32 @@ void Processing::Simplify(TL::Trimesh& mesh, double max_collapse_cost_ratio,
     }
     return true;
   };
-  for (TL::F st_f = 0; st_f < mesh.NumFaces(); st_f++) {
-    std::vector<TL::F> vf{st_f};
-    while (!vf.empty() && mesh.NumFaces()) {
-      TL::F f = vf.back();
-      vf.pop_back();
-      if (f <= std::min(st_f, mesh.NumFaces() - 1)) {
-        for (TL::H h : mesh.FHalfedges(f)) {
-          auto [cost, midpoint] = collapse_cost(h);
-          if (cost < max_collapse_cost && is_valid_collapse(h, midpoint)) {
-            auto [deleted_faces, deleted_verts] =
-                mesh.CollapseEdge(h, midpoint);
-            vf.insert(vf.end(), deleted_faces.begin(), deleted_faces.end());
-            break;
+  H id = (H)(simplification_ratio * mesh.NumHalfedges());
+  if (id < mesh.NumHalfedges()) {
+    std::vector<double> costs;
+    for (H h : mesh.Halfedges()) {
+      costs.push_back(collapse_cost(h).first);
+    }
+    std::nth_element(costs.begin(), costs.begin() + id, costs.end(),
+                     std::greater<double>());
+    double max_collapse_cost = costs[id];
+    for (F st_f = 0; st_f < mesh.NumFaces(); st_f++) {
+      std::vector<F> vf{st_f};
+      while (!vf.empty() && mesh.NumFaces()) {
+        F f = vf.back();
+        vf.pop_back();
+        if (f <= std::min(st_f, mesh.NumFaces() - 1)) {
+          for (H h : mesh.FHalfedges(f)) {
+            if (mesh.NumHalfedges() <= id) {
+              return;
+            }
+            auto [cost, midpoint] = collapse_cost(h);
+            if (cost <= max_collapse_cost && is_valid_collapse(h, midpoint)) {
+              auto [deleted_faces, deleted_verts] =
+                  mesh.CollapseEdge(h, midpoint);
+              vf.insert(vf.end(), deleted_faces.begin(), deleted_faces.end());
+              break;
+            }
           }
         }
       }
@@ -824,7 +847,7 @@ void Processing::RemoveSelfIntersections(Trimesh& mesh) {
   mesh.RemoveFaces(rm_faces);
 }
 
-void Processing::PrintabilityHeuristics(Trimesh& mesh, int niters) {
+void Processing::MakeWatertight(Trimesh& mesh, int niters) {
   if (mesh.NumFaces() == 0) {
     return;
   }
